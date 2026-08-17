@@ -211,6 +211,7 @@ td.best{color:var(--sage)} td.worst{color:var(--coral)}
       <button data-s="transport">Transport</button>
       <button data-s="both">Combined</button>
     </div>
+    <button class="btn" id="publish">Publish</button>
     <button class="btn" id="reload">Load another folder</button>
   </div>
   <div class="filters" id="filters">
@@ -494,6 +495,52 @@ function mapFromDataset(D){
     has(code,branch){ return byKey.has(code+'|'+branch) || byCode.has(code); },
     keys(){ return byKey.keys(); }};
 }
+/* ---- IndexedDB Persistence for Published Dashboard ---- */
+const DB_NAME = 'FeeWarRoomDB';
+const DB_STORE = 'published_files';
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(DB_STORE)) {
+        db.createObjectStore(DB_STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function savePublishedFiles(fileItems) {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    const store = tx.objectStore(DB_STORE);
+    store.clear();
+    store.put({ id: 'latest_publish', publishedAt: new Date().toISOString(), files: fileItems });
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e.target.error);
+  });
+}
+
+async function getPublishedFiles() {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readonly');
+      const store = tx.objectStore(DB_STORE);
+      const req = store.get('latest_publish');
+      req.onsuccess = e => resolve(e.target.result || null);
+      req.onerror = e => reject(e.target.error);
+    });
+  } catch (e) {
+    console.error('Failed to access IndexedDB', e);
+    return null;
+  }
+}
+
 /* ============================= CORE END ============================= */
 </script>
 <script>
@@ -501,7 +548,7 @@ function mapFromDataset(D){
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const S={ F0:null,F1:null,FM0:null,FM1:null,FM2:null, T0:null,T1:null,TM0:null,TM1:null,TM2:null,
           fees:null, transport:null, priorFees:null, priorTr:null, nextFees:null, nextTr:null,
-          files:[], scope:'fees', tab:'overview', focus:'settled', cmp:new Set(), targets:new Map(), tgtBr:new Set(),
+          files:[], rawFiles:[], isPublished:false, publishedAt:null, scope:'fees', tab:'overview', focus:'settled', cmp:new Set(), targets:new Map(), tgtBr:new Set(),
           filt:{loc:new Set(),br:new Set(),gr:new Set(),ty:new Set(),st:'A',q:''}, sort:{} };
 const emptyFilt=()=>({loc:new Set(),br:new Set(),gr:new Set(),ty:new Set(),st:'A',q:''});
 
@@ -557,8 +604,12 @@ $('#reload').onclick=()=>{ $('#loader').classList.remove('hide'); $('#app').clas
 
 const yieldUI=()=>new Promise(r=>setTimeout(r,0));
 
-async function ingest(fileList){
+async function ingest(fileList, opts={}){
   if(!fileList||!fileList.length){ setStatus('No CSV files found.',1); return; }
+  S.rawFiles = fileList;
+  S.isPublished = !!opts.fromPublished;
+  if(opts.fromPublished && opts.publishedAt) S.publishedAt = opts.publishedAt;
+  else if(!opts.fromPublished) { S.isPublished = false; S.publishedAt = null; }
   setStatus('Reading '+fileList.length+' file'+(fileList.length>1?'s':'')+'…'); setProg(0.02);
   const meta=[];
   for(let i=0;i<fileList.length;i++){
@@ -1578,8 +1629,35 @@ function boot(){
   if(!settledOK()) chips.push('<span class="chip warn">Keep the '+dayShort(S.dates.d1)+' and '+dayShort(S.dates.d0)+' exports and add tomorrow\'s to close a settled day</span>');
   if(S.fees&&P.fees.d0!==S.dates.d0) chips.push('<span class="chip warn">Fee report is from '+P.fees.d0+'</span>');
   if(S.transport&&P.transport.d0!==S.dates.d0) chips.push('<span class="chip warn">Transport report is from '+P.transport.d0+'</span>');
+  if(S.isPublished) chips.push('<span class="chip" style="border-color:var(--sage);color:var(--sage)">Published</span>');
   chips.push('<span class="chip">'+(S.fees?S.fees.N.toLocaleString('en-IN'):0)+' fee · '+(S.transport?S.transport.N.toLocaleString('en-IN'):0)+' transport records</span>');
   $('#dateChips').innerHTML=chips.join('');
+  const pubBtn = $('#publish');
+  if(pubBtn){
+    pubBtn.textContent = S.isPublished ? 'Published ✓' : 'Publish';
+    pubBtn.onclick = async () => {
+      if(!S.rawFiles || !S.rawFiles.length) {
+        alert('No files loaded to publish.');
+        return;
+      }
+      pubBtn.textContent = 'Publishing...';
+      try {
+        const fileItems = [];
+        for(const f of S.rawFiles) {
+          const content = await f.text();
+          fileItems.push({ name: f.name, lastModified: f.lastModified, content: content });
+        }
+        await savePublishedFiles(fileItems);
+        S.isPublished = true;
+        S.publishedAt = new Date().toISOString();
+        boot();
+      } catch(err) {
+        console.error(err);
+        alert('Failed to publish dashboard: ' + err.message);
+        pubBtn.textContent = 'Publish';
+      }
+    };
+  }
   $('#brandSub').textContent='Orchids · '+(S.fees?S.fees.IB.list.filter(v=>v!==BLANK).length:0)+' branches';
   if(!S.fees&&S.transport) S.scope='transport';
   $$('#scope button').forEach(b=>{ b.classList.toggle('on',b.dataset.s===S.scope);
@@ -1592,6 +1670,22 @@ function boot(){
   renderFocus(); refreshFilters(); render();
   $('#loader').classList.add('hide'); $('#app').classList.remove('hide');
 }
+
+/* Auto-load published dashboard on startup if available */
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const pubData = await getPublishedFiles();
+    if(pubData && pubData.files && pubData.files.length) {
+      const files = pubData.files.map(f => {
+        const blob = new Blob([f.content], { type: 'text/csv' });
+        return new File([blob], f.name, { lastModified: f.lastModified });
+      });
+      await ingest(files, { fromPublished: true, publishedAt: pubData.publishedAt });
+    }
+  } catch(e) {
+    console.error('Error auto-loading published files:', e);
+  }
+});
 </script>
 </body>
 </html>
