@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fee Collection War Room — Orchids</title>
+<style>
+:root{
+  --bg:#0A0E14; --panel:#121821; --panel2:#182029; --panel3:#1E2833;
+  --line:#242F3C; --line2:#31404F;
+  --ink:#E9EFF6; --muted:#8A9BAF; --dim:#5E7186;
+  --gold:#F2B33D; --goldhi:#FFD98A; --cyan:#4FC3D9; --coral:#E8695C; --sage:#93C06B; --violet:#9E8CD6;
+  --r:4px;
+  --mono:ui-monospace,"Cascadia Mono","Consolas","SF Mono","Roboto Mono",monospace;
+  --ui:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select{font-family:inherit;font-size:inherit}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:5px}
+
+/* ---------- eyebrow / labels ---------- */
+.eyebrow{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600}
+
+/* ---------- top bar ---------- */
+header{position:sticky;top:0;z-index:60;background:linear-gradient(180deg,#0A0E14 70%,rgba(10,14,20,.92));border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:18px;padding:10px 18px;flex-wrap:wrap}
+.brand{display:flex;flex-direction:column;line-height:1.15}
+.brand b{font-size:15px;font-weight:650;letter-spacing:-.01em}
+.brand span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.datechips{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{border:1px solid var(--line2);border-radius:var(--r);padding:3px 9px;font-size:11px;color:var(--muted);background:var(--panel)}
+.chip b{color:var(--ink);font-family:var(--mono)}
+.chip.warn{border-color:#5c4520;color:var(--gold)}
+.spacer{flex:1}
+.scope{display:flex;border:1px solid var(--line2);border-radius:var(--r);overflow:hidden}
+.scope button{padding:5px 13px;font-size:11.5px;color:var(--muted);border-right:1px solid var(--line2)}
+.scope button:last-child{border-right:none}
+.scope button.on{background:var(--gold);color:#0A0E14;font-weight:650}
+.btn{border:1px solid var(--line2);border-radius:var(--r);padding:5px 12px;font-size:11.5px;color:var(--muted);background:var(--panel)}
+.btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ---------- filters ---------- */
+.filters{display:flex;gap:10px;align-items:center;padding:8px 18px;border-top:1px solid var(--line);flex-wrap:wrap;background:var(--panel)}
+.fld{display:flex;flex-direction:column;gap:3px}
+.fld label{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.fld select,.fld input{background:var(--panel2);border:1px solid var(--line2);color:var(--ink);padding:4px 7px;border-radius:var(--r);min-width:130px;outline:none}
+.fld select:focus,.fld input:focus{border-color:var(--gold)}
+.fcount{font-size:11px;color:var(--muted)}
+.fcount b{color:var(--gold);font-family:var(--mono)}
+
+/* ---------- tabs ---------- */
+nav.tabs{display:flex;gap:0;padding:0 18px;border-top:1px solid var(--line);background:var(--bg);overflow-x:auto}
+nav.tabs button{padding:9px 14px;font-size:12px;color:var(--dim);border-bottom:2px solid transparent;white-space:nowrap}
+nav.tabs button:hover{color:var(--muted)}
+nav.tabs button.on{color:var(--ink);border-bottom-color:var(--gold)}
+
+/* ---------- layout ---------- */
+main{padding:18px}
+.grid{display:grid;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.card h3{margin:0 0 2px;font-size:12px;font-weight:600;letter-spacing:.02em}
+.card .sub{font-size:10.5px;color:var(--dim);margin-bottom:12px}
+.cardhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+
+/* ---------- hero ---------- */
+.hero{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 14px;position:relative;overflow:hidden}
+.hero .todayfig{font-family:var(--mono);font-size:clamp(32px,6vw,58px);font-weight:600;letter-spacing:-.03em;color:var(--goldhi);line-height:1}
+.hero .todaysub{color:var(--muted);font-size:12px;margin-top:6px}
+.hero .todaysub b{color:var(--ink);font-family:var(--mono)}
+.herogrid{display:grid;grid-template-columns:minmax(240px,1fr) minmax(320px,1.5fr);gap:24px;align-items:center}
+@media(max-width:820px){.herogrid{grid-template-columns:1fr}}
+
+/* ---------- rail (signature) ---------- */
+.rail{position:relative;height:14px;background:var(--panel3);border-radius:2px;overflow:hidden;display:flex}
+.rail .seg{height:100%}
+.rail .paidY{background:var(--gold)}
+.rail .today{background:var(--goldhi)}
+.rail .due{background:#2A3441}
+.rail.slim{height:8px}
+.raillegend{display:flex;gap:14px;margin-top:8px;font-size:10.5px;color:var(--muted);flex-wrap:wrap}
+.dot{display:inline-block;width:8px;height:8px;border-radius:1px;margin-right:5px;vertical-align:middle}
+
+/* ---------- kpi ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:11px 12px}
+.kpi .k{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.kpi .v{font-family:var(--mono);font-size:19px;margin-top:5px;letter-spacing:-.02em}
+.kpi .d{font-size:10.5px;color:var(--muted);margin-top:3px}
+.up{color:var(--sage)} .down{color:var(--coral)} .gold{color:var(--gold)} .cy{color:var(--cyan)}
+
+/* ---------- tables ---------- */
+.tblwrap{overflow:auto;max-height:640px;border:1px solid var(--line);border-radius:var(--r)}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}
+th{position:sticky;top:0;z-index:5;background:var(--panel2);text-align:left;padding:7px 9px;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line2);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--gold)}
+th.no{cursor:default}th.no:hover{color:var(--dim)}
+td{padding:6px 9px;border-bottom:1px solid #1a222c;white-space:nowrap}
+tbody tr:hover td{background:var(--panel2)}
+td.n{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+th.n{text-align:right}
+.pill{font-size:9.5px;padding:1px 6px;border-radius:9px;border:1px solid var(--line2);color:var(--muted)}
+.pill.f{border-color:#5c4520;color:var(--gold)}
+.pill.t{border-color:#20505c;color:var(--cyan)}
+.pill.bad{border-color:#5c2b26;color:var(--coral)}
+.pill.ok{border-color:#33502a;color:var(--sage)}
+
+/* ---------- bars ---------- */
+.barrow{display:grid;grid-template-columns:130px 1fr 92px;gap:10px;align-items:center;margin-bottom:7px;font-size:11.5px}
+.barrow .nm{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.barrow .val{text-align:right;font-family:var(--mono);font-size:11px}
+.bartrack{height:11px;background:var(--panel3);border-radius:2px;overflow:hidden;display:flex}
+
+/* ---------- insights ---------- */
+.ins{display:flex;gap:9px;padding:9px 0;border-bottom:1px solid #1a222c;font-size:12px;align-items:flex-start}
+.ins:last-child{border-bottom:none}
+.ins .tag{font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:2px;flex-shrink:0;margin-top:1px}
+.tag.crit{background:#3a1c19;color:#F5A79C}
+.tag.watch{background:#3d2f14;color:var(--goldhi)}
+.tag.good{background:#22331b;color:#B9DE96}
+.tag.info{background:#1c2a33;color:#9FD3E0}
+.ins b{font-family:var(--mono);font-weight:600}
+
+/* ---------- loader ---------- */
+#loader{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px}
+.lbox{max-width:660px;width:100%}
+.lbox h1{font-size:22px;margin:0 0 4px;letter-spacing:-.02em;font-weight:650}
+.lbox .kick{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:14px}
+.drop{border:1px dashed var(--line2);border-radius:var(--r);padding:26px;text-align:center;background:var(--panel);transition:border-color .15s,background .15s}
+.drop.hot{border-color:var(--gold);background:#141a22}
+.drop p{color:var(--muted);margin:8px 0 14px;font-size:12.5px}
+.pathbox{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);padding:7px 9px;border-radius:var(--r);margin-top:14px;word-break:break-all}
+.big{background:var(--gold);color:#0A0E14;font-weight:650;padding:9px 18px;border-radius:var(--r);border:none}
+.big:hover{background:var(--goldhi)}
+.prog{height:5px;background:var(--panel3);border-radius:3px;overflow:hidden;margin-top:16px;display:none}
+.prog i{display:block;height:100%;width:0;background:var(--gold);transition:width .12s linear}
+#lstatus{font-size:11.5px;color:var(--muted);margin-top:9px;font-family:var(--mono);min-height:17px}
+.filelist{margin-top:14px;font-size:11px;color:var(--dim);max-height:150px;overflow:auto;font-family:var(--mono)}
+.filelist div{padding:1px 0}
+.err{color:var(--coral)}
+.hide{display:none!important}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.two{grid-template-columns:1fr}}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:1100px){.three{grid-template-columns:1fr}}
+.mini{font-size:10.5px;color:var(--dim)}
+.tblbar{display:flex;gap:9px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+
+/* ---------- multi select ---------- */
+.ms{position:relative}
+.msbtn{background:var(--panel2);border:1px solid var(--line2);color:var(--ink);padding:4px 24px 4px 8px;border-radius:var(--r);min-width:150px;text-align:left;position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px}
+.msbtn:after{content:'▾';position:absolute;right:8px;top:3px;color:var(--dim);font-size:10px}
+.msbtn.act{border-color:var(--gold);color:var(--gold)}
+.mspanel{position:absolute;z-index:80;top:calc(100% + 4px);left:0;width:270px;background:var(--panel2);border:1px solid var(--line2);border-radius:var(--r);box-shadow:0 12px 30px rgba(0,0,0,.55);padding:8px}
+.mspanel input{width:100%;background:var(--panel);border:1px solid var(--line2);color:var(--ink);padding:4px 7px;border-radius:var(--r);outline:none;margin-bottom:6px}
+.msopts{max-height:230px;overflow:auto}
+.msopt{display:flex;gap:7px;align-items:center;padding:3px 4px;border-radius:3px;cursor:pointer;font-size:12px}
+.msopt:hover{background:var(--panel3)}
+.msopt input{width:auto;margin:0}
+.msfoot{display:flex;gap:8px;margin-top:7px;border-top:1px solid var(--line);padding-top:7px}
+.msfoot button{font-size:10.5px;color:var(--dim)}
+.msfoot button:hover{color:var(--gold)}
+.msfoot .cnt{margin-left:auto;font-size:10.5px;color:var(--dim);font-family:var(--mono)}
+/* ---------- compare ---------- */
+.cmpgrid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.cmpcol{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.cmpcol h4{margin:0;font-size:12.5px;font-weight:600}
+.cmpcol .city{font-size:10.5px;color:var(--dim);margin-bottom:9px}
+.cmpcol .big{font-family:var(--mono);font-size:24px;letter-spacing:-.02em;background:none;color:var(--gold);padding:0}
+.cmpcol dl{display:grid;grid-template-columns:1fr auto;gap:3px 8px;margin:10px 0 0;font-size:11.5px}
+.cmpcol dt{color:var(--dim)}
+.cmpcol dd{margin:0;font-family:var(--mono);text-align:right}
+td.best{color:var(--sage)} td.worst{color:var(--coral)}
+.tblbar input{background:var(--panel2);border:1px solid var(--line2);color:var(--ink);padding:4px 8px;border-radius:var(--r);min-width:180px;outline:none}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="lbox">
+    <div class="kick">Orchids · Fee &amp; Transport Collection</div>
+    <h1>Load the daily report folder</h1>
+    <div class="drop" id="drop">
+      <p>Point this at your <b>Dashboard_fees</b> folder. Every CSV inside is read — fee reports and transport reports are told apart by their contents, not their file names, and the two most recent dates become <i>today</i> and <i>yesterday</i>.</p>
+      <button class="big" id="pickDir">Choose folder</button>
+      <button class="btn" id="pickFiles" style="margin-left:8px">Choose files instead</button>
+      <input type="file" id="dirInput" webkitdirectory directory multiple class="hide">
+      <input type="file" id="fileInput" multiple accept=".csv" class="hide">
+      <div class="pathbox">C:\Users\Sagar Makar\OneDrive\Desktop\Dashboard_fees</div>
+    </div>
+    <div class="prog" id="prog"><i></i></div>
+    <div id="lstatus"></div>
+    <div class="filelist" id="filelist"></div>
+  </div>
+</div>
+
+<div id="app" class="hide">
+<header>
+  <div class="bar">
+    <div class="brand"><b>Fee Collection War Room</b><span id="brandSub">Orchids · daily movement</span></div>
+    <div class="datechips" id="dateChips"></div>
+    <div class="spacer"></div>
+    <div class="scope" id="focus"></div>
+    <div class="scope" id="scope">
+      <button data-s="fees" class="on">Fees</button>
+      <button data-s="transport">Transport</button>
+      <button data-s="both">Combined</button>
+    </div>
+    <button class="btn" id="reload">Load another folder</button>
+  </div>
+  <div class="filters" id="filters">
+    <div class="fld"><label>Cities</label><div class="ms" id="msLoc"></div></div>
+    <div class="fld"><label>Branches</label><div class="ms" id="msBr"></div></div>
+    <div class="fld"><label>Grades</label><div class="ms" id="msGr"></div></div>
+    <div class="fld"><label>Student type</label><div class="ms" id="msTy"></div></div>
+    <div class="fld"><label>Status</label><select id="fSt">
+      <option value="A">Active only</option><option value="">All students</option><option value="I">Inactive only</option>
+    </select></div>
+    <div class="fld"><label>Search name / code</label><input id="fQ" placeholder="e.g. 2605670195"></div>
+    <button class="btn" id="fReset">Reset</button>
+    <div class="fcount" id="fCount"></div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-t="overview" class="on">Overview</button>
+    <button data-t="branches">Branches</button>
+    <button data-t="compare">Compare branches</button>
+    <button data-t="targets">Targets</button>
+    <button data-t="today">Payment log</button>
+    <button data-t="defaulters">Outstanding</button>
+    <button data-t="segments">Segments</button>
+    <button data-t="health">Data health</button>
+  </nav>
+</header>
+<main id="views"></main>
+</div>
+
+<script>
+/* ============================= CORE START ============================= */
+/* ---- fast CSV line splitter (RFC4180-ish, handles quotes + embedded commas) ---- */
+function splitCSVLine(s){
+  const out=[]; let i=0, n=s.length, cur='', q=false;
+  while(i<n){
+    const c=s[i];
+    if(q){
+      if(c==='"'){ if(s[i+1]==='"'){cur+='"';i+=2;continue;} q=false;i++;continue; }
+      cur+=c;i++;
+    }else{
+      if(c==='"'){q=true;i++;continue;}
+      if(c===','){out.push(cur);cur='';i++;continue;}
+      if(c==='\r'){i++;continue;}
+      cur+=c;i++;
+    }
+  }
+  out.push(cur); return out;
+}
+/* split whole text into logical rows, respecting quoted newlines */
+function csvRows(text){
+  const rows=[]; let start=0,q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text.charCodeAt(i);
+    if(c===34){ q=!q; continue; }
+    if(c===10 && !q){
+      let end=i; if(end>start && text.charCodeAt(end-1)===13) end--;
+      if(end>start) rows.push(text.slice(start,end));
+      start=i+1;
+    }
+  }
+  if(start<text.length){ const tail=text.slice(start).trim(); if(tail) rows.push(tail); }
+  return rows;
+}
+const norm = h => String(h||'').toLowerCase().replace(/\s+/g,'').replace(/_/g,'');
+function num(v){ if(v===undefined||v===null) return 0; const s=String(v).trim(); if(!s||s==='NA'||s==='N/A'||s==='-') return 0; const f=parseFloat(s.replace(/[, ₹]/g,'')); return isFinite(f)?f:0; }
+
+/* ---- identify a file from its header row ----
+   Never decide on a single token. Both exports are "total paid and due" reports and either one
+   may use Paid or Collected for the money column, so the decision is made on columns that only
+   ever exist in one of the two formats, and the winner has to be clear. ---- */
+const FEE_SIGNS=[['Location Name',2],['One Time(Net)',3],['Hostel Installment 1(Net)',2],['Application Fee',1],
+                 ['Registration Fee',1],['Enrollement Code',2],['Is Opted For Finance Partner',1],['Student Type',1],['Shift',1]];
+const TR_SIGNS =[['Fee Plan Name',3],['Father Name',2],['Sr.no',2],['Enrollment Code',2]];
+function classify(headerLine,fileName){
+  const cells=splitCSVLine(headerLine).map(norm), set=new Set(cells);
+  const score=list=>list.reduce((t,[n,w])=>t+(set.has(norm(n))?w:0),0);
+  let f=score(FEE_SIGNS), t=score(TR_SIGNS);
+  // a bare "Branch" column belongs to transport, "Branch Name" to fees
+  if(set.has('branch')&&!set.has('branchname')) t+=1;
+  const hasMoney=cells.some(c=>/\((paid|collected)\)$/.test(c));
+  const detail={fee:f,transport:t,money:hasMoney};
+  // the report is identified by its own columns; an oddly named money column is reported later, not hidden
+  if(f>=3&&f>t) return {type:'fees',detail};
+  if(t>=3&&t>f) return {type:'transport',detail};
+  if(!hasMoney) return {type:null,detail};              // not one of these reports at all
+  const n=String(fileName||'').toLowerCase();           // headers were inconclusive, fall back to the name
+  if(n.includes('transport')) return {type:'transport',detail,byName:true};
+  if(n.includes('totalpaid')||n.includes('fee')) return {type:'fees',detail,byName:true};
+  return {type:null,detail};
+}
+const sniffType = headerLine => classify(headerLine,'').type;
+function sniffDate(name, fallbackMs){
+  // a real calendar date only — this must not latch onto the financial year (2026-27) in the file name
+  const m=String(name).match(/(20\d{2})[-_.](0[1-9]|1[0-2])[-_.](0[1-9]|[12]\d|3[01])(?!\d)/g);
+  if(m&&m.length){
+    const cand=m.map(x=>x.replace(/[_.]/g,'-')).filter(t=>!isNaN(new Date(t+'T00:00:00')));
+    if(cand.length) return cand.sort()[cand.length-1]; // latest real date in the name
+  }
+  const d=new Date(fallbackMs||Date.now());
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+/* ---- column resolution ----
+   Fee cycles are read from the header itself rather than a hard-coded list, so a report with
+   different cycles (or with Collected instead of Paid) still adds up correctly. ---- */
+function bucketOrder(label){
+  const l=label.toLowerCase();
+  if(/^hostel/.test(l)) return 30;
+  const n=l.match(/instal+ment\s*(\d+)/); if(n) return +n[1];
+  if(/one\s*time/.test(l)) return 20;
+  if(/admission|registration|application/.test(l)) return 21;
+  return 25;
+}
+function detectBuckets(headCells){
+  const m=colMap(headCells), groups=new Map();
+  headCells.forEach((raw,i)=>{
+    const mm=String(raw).match(/^(.*?)\s*\(\s*net\s*\)\s*$/i);
+    if(!mm) return;
+    const pre=mm[1].trim(); if(!pre) return;
+    const label=/^hostel/i.test(pre)?'Hostel':pre;
+    let g=groups.get(label);
+    if(!g){ g={label,ord:bucketOrder(label),parts:[]}; groups.set(label,g); }
+    g.parts.push({ net:i,
+      paid:pick(m,pre+'(paid)',pre+'(collected)',pre+'(paid amount)',pre+'(received)'),
+      due :pick(m,pre+'(due)',pre+'(balance)'),
+      fine:pick(m,pre+'(fine)',pre+'(late fee)'),
+      conc:pick(m,pre+'(concession)',pre+'(discount)'),
+      act :pick(m,pre+'(actual)',pre+'(gross)') });
+  });
+  return [...groups.values()].sort((a,b)=>a.ord-b.ord||a.label.localeCompare(b.label))
+    .map(g=>({key:norm(g.label),label:g.label,parts:g.parts}));
+}
+const FEE_BUCKETS=[
+  {key:'I1',label:'Installment 1',cols:['installment1']},
+  {key:'I2',label:'Installment 2',cols:['installment2']},
+  {key:'I3',label:'Installment 3',cols:['installment3']},
+  {key:'I4',label:'Installment 4',cols:['installment4']},
+  {key:'OT',label:'One time',cols:['onetime']},
+  {key:'HS',label:'Hostel',cols:['hostelinstallment1','hostelinstallment2','hostelinstallment3','hostelinstallment4']}
+];
+const TR_BUCKETS=[
+  {key:'I1',label:'Installment 1',cols:['installment1']},
+  {key:'I2',label:'Installment 2',cols:['installment2']},
+  {key:'I3',label:'Installment 3',cols:['installment3']},
+  {key:'I4',label:'Installment 4',cols:['installment4']}
+];
+function colMap(headerCells){
+  const m={}; headerCells.forEach((h,i)=>{ m[norm(h)]=i; });
+  return m;
+}
+function pick(m,...names){ for(const n of names){ const k=norm(n); if(m[k]!==undefined) return m[k]; } return -1; }
+function bucketCols(m,buckets,paidWord,concWord){
+  return buckets.map(b=>{
+    const parts=b.cols.map(c=>({
+      net:pick(m,c+'(net)'), paid:pick(m,c+'('+paidWord+')'), due:pick(m,c+'(due)'),
+      fine:pick(m,c+'(fine)'), conc:pick(m,c+'('+concWord+')'), act:pick(m,c+'(actual)')
+    }));
+    return {key:b.key,label:b.label,parts};
+  });
+}
+
+/* ---- string interning for compact categorical storage ---- */
+const BLANK='Not specified';
+function Interner(){ const map=new Map(), list=[]; return {
+  id(v){ v=(v===undefined||v===null||v==='')?BLANK:String(v).trim()||BLANK;
+    let i=map.get(v); if(i===undefined){ i=list.length; list.push(v); map.set(v,i);} return i; },
+  list, get(i){return list[i];} };
+}
+
+/* ---- build a dataset (today) from CSV text ---- */
+/* returns column-store: N, codes[], names[], branch/loc/grade/type idx arrays, vals Float64Array */
+function buildDataset(text, kind){
+  const rows=csvRows(text);
+  if(!rows.length) throw new Error('empty file');
+  const head=splitCSVLine(rows[0]); const m=colMap(head);
+  const buckets = detectBuckets(head);
+  if(!buckets.length) throw new Error('no fee cycle columns found in the header');
+  const cCode=pick(m,'Enrollement Code','Enrollment Code','enrolmentcode');
+  const cName=pick(m,'Student Name');
+  const cBr  =pick(m,'Branch Name','Branch');
+  const cLoc =pick(m,'Location Name');
+  const cGr  =pick(m,'Grade');
+  const cSec =pick(m,'Section');
+  const cStat=pick(m,'Permanent_Status','Permanent Status');
+  const cTemp=pick(m,'Temporary_Status');
+  const cType=pick(m,'Student Type');
+  const cFin =pick(m,'Is Opted For Finance Partner','Finance Partner');
+  const cPay =pick(m,'Payment Option');
+  const cPlan=pick(m,'Fee Plan Name');
+  const cGen =pick(m,'Gender','gender');
+
+  const N=rows.length-1;
+  const B=buckets.length, STRIDE=6+B*3; // 6 totals + per-bucket net/paid/due
+  const vals=new Float64Array(N*STRIDE);
+  const codes=new Array(N), names=new Array(N);
+  const br=new Uint16Array(N), lo=new Uint16Array(N), gr=new Uint16Array(N), ty=new Uint16Array(N),
+        pl=new Uint16Array(N), se=new Uint16Array(N), st=new Uint8Array(N), fin=new Uint8Array(N), gen=new Uint8Array(N);
+  const IB=Interner(), IL=Interner(), IG=Interner(), IT=Interner(), IP=Interner(), IS=Interner();
+  const index=new Map(); let dupes=0;
+
+  for(let r=1;r<=N;r++){
+    const f=splitCSVLine(rows[r]); const i=r-1;
+    const code=(f[cCode]||'').trim();
+    codes[i]=code; names[i]=(f[cName]||'').trim();
+    br[i]=IB.id(f[cBr]); lo[i]=IL.id(cLoc>=0?f[cLoc]:''); gr[i]=IG.id(f[cGr]);
+    ty[i]=IT.id(cType>=0?f[cType]:''); pl[i]=IP.id(cPlan>=0?f[cPlan]:''); se[i]=IS.id(cSec>=0?f[cSec]:'');
+    const sv=(cStat>=0?String(f[cStat]||''):'').trim().toLowerCase();
+    st[i]= sv.startsWith('a')?1:(sv.startsWith('i')?2:0);
+    if(cTemp>=0 && String(f[cTemp]||'').trim().toLowerCase().startsWith('i')) st[i]|=4;
+    const fv=(cFin>=0?String(f[cFin]||''):'').trim().toLowerCase();
+    fin[i]= (fv==='yes'||fv==='y'||(fv&&fv!=='no'&&fv!=='na'))?1:0;
+    if(cPay>=0 && String(f[cPay]||'').trim()) fin[i]=1;
+    const gv=(cGen>=0?String(f[cGen]||''):'').trim().toLowerCase();
+    gen[i]= gv.startsWith('m')?1:(gv.startsWith('f')?2:0);
+
+    const base=i*STRIDE;
+    let tAct=0,tCon=0,tNet=0,tPaid=0,tFine=0,tDue=0;
+    for(let b=0;b<B;b++){
+      let bn=0,bp=0,bd=0;
+      const parts=buckets[b].parts;
+      for(let p=0;p<parts.length;p++){
+        const q=parts[p];
+        const net=q.net>=0?num(f[q.net]):0, paid=q.paid>=0?num(f[q.paid]):0, due=q.due>=0?num(f[q.due]):0;
+        bn+=net; bp+=paid; bd+=due;
+        tAct+=q.act>=0?num(f[q.act]):0; tCon+=q.conc>=0?num(f[q.conc]):0; tFine+=q.fine>=0?num(f[q.fine]):0;
+      }
+      vals[base+6+b*3]=bn; vals[base+6+b*3+1]=bp; vals[base+6+b*3+2]=bd;
+      tNet+=bn; tPaid+=bp; tDue+=bd;
+    }
+    vals[base]=tAct; vals[base+1]=tCon; vals[base+2]=tNet; vals[base+3]=tPaid; vals[base+4]=tFine; vals[base+5]=tDue;
+    if(code){ if(index.has(code)) dupes++; else index.set(code,i); }
+  }
+  return {kind,N,STRIDE,B,buckets:buckets.map(b=>({key:b.key,label:b.label})),vals,codes,names,
+    br,lo,gr,ty,pl,se,st,fin,gen,IB,IL,IG,IT,IP,IS,index,dupes,hasLoc:cLoc>=0,cycleNames:buckets.map(b=>b.label),
+    moneyCol:buckets.some(b=>b.parts.some(q=>q.paid>=0)),dueCol:buckets.some(b=>b.parts.some(q=>q.due>=0))};
+}
+
+/* ---- build the "yesterday" lookup: code -> {paid,due,net} ---- */
+function buildPrior(text,kind){
+  const rows=csvRows(text);
+  const head=splitCSVLine(rows[0]); const m=colMap(head);
+  const buckets=detectBuckets(head);
+  const cCode=pick(m,'Enrollement Code','Enrollment Code');
+  const cBr=pick(m,'Branch Name','Branch');
+  const byKey=new Map(), byCode=new Map(), clash=new Set();
+  for(let r=1;r<rows.length;r++){
+    const f=splitCSVLine(rows[r]);
+    const code=(f[cCode]||'').trim(); if(!code) continue;
+    let paid=0,due=0,net=0;
+    for(const b of buckets) for(const q of b.parts){
+      if(q.paid>=0) paid+=num(f[q.paid]);
+      if(q.due>=0)  due +=num(f[q.due]);
+      if(q.net>=0)  net +=num(f[q.net]);
+    }
+    const rec={paid,due,net};
+    byKey.set(code+'|'+String(cBr>=0?f[cBr]||'':'').trim(),rec);
+    // a code that repeats (student moved branch / duplicated row) can't be matched by code alone
+    if(byCode.has(code)) clash.add(code); else byCode.set(code,rec);
+  }
+  clash.forEach(c=>byCode.delete(c));
+  let netTot=0,paidTot=0; byKey.forEach(r=>{netTot+=r.net;paidTot+=r.paid;});
+  return {byKey,byCode,size:byKey.size,netTot,paidTot,cycleNames:buckets.map(b=>b.label),
+    get(code,branch){ return byKey.get(code+'|'+branch) || byCode.get(code); },
+    has(code,branch){ return byKey.has(code+'|'+branch) || byCode.has(code); },
+    keys(){ return byKey.keys(); }};
+}
+/* ---- the same lookup shape as buildPrior, taken straight off a parsed dataset ---- */
+function mapFromDataset(D){
+  const byKey=new Map(), byCode=new Map(), clash=new Set();
+  let netTot=0,paidTot=0;
+  for(let i=0;i<D.N;i++){
+    const b=i*D.STRIDE, code=D.codes[i];
+    const rec={paid:D.vals[b+3],due:D.vals[b+5],net:D.vals[b+2]};
+    netTot+=rec.net; paidTot+=rec.paid;
+    if(!code) continue;
+    byKey.set(code+'|'+D.IB.get(D.br[i]),rec);
+    if(byCode.has(code)) clash.add(code); else byCode.set(code,rec);
+  }
+  clash.forEach(c=>byCode.delete(c));
+  return {byKey,byCode,size:byKey.size,netTot,paidTot,cycleNames:D.cycleNames,
+    get(code,branch){ return byKey.get(code+'|'+branch) || byCode.get(code); },
+    has(code,branch){ return byKey.has(code+'|'+branch) || byCode.has(code); },
+    keys(){ return byKey.keys(); }};
+}
+/* ============================= CORE END ============================= */
+</script>
+<script>
+/* ============================= APP ============================= */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const S={ F0:null,F1:null,FM0:null,FM1:null,FM2:null, T0:null,T1:null,TM0:null,TM1:null,TM2:null,
+          fees:null, transport:null, priorFees:null, priorTr:null, nextFees:null, nextTr:null,
+          files:[], scope:'fees', tab:'overview', focus:'settled', cmp:new Set(), targets:new Map(), tgtBr:new Set(),
+          filt:{loc:new Set(),br:new Set(),gr:new Set(),ty:new Set(),st:'A',q:''}, sort:{} };
+const emptyFilt=()=>({loc:new Set(),br:new Set(),gr:new Set(),ty:new Set(),st:'A',q:''});
+
+/* ---------- formatting ---------- */
+const inr = n => { n=Math.round(n||0); const neg=n<0; n=Math.abs(n);
+  let s=String(n), last3=s.slice(-3), rest=s.slice(0,-3);
+  if(rest) s=rest.replace(/\B(?=(\d{2})+(?!\d))/g,',')+','+last3;
+  return (neg?'-₹':'₹')+s; };
+const cr = n => { const a=Math.abs(n||0);
+  if(a>=1e7) return (n/1e7).toFixed(2)+' Cr';
+  if(a>=1e5) return (n/1e5).toFixed(2)+' L';
+  if(a>=1e3) return (n/1e3).toFixed(1)+' K';
+  return String(Math.round(n||0)); };
+const rup = n => '₹'+cr(n);
+const pc  = (a,b) => b>0? (a/b*100) : 0;
+const p1  = x => (x||0).toFixed(1)+'%';
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- file loading ---------- */
+const setStatus=(t,err)=>{ const e=$('#lstatus'); e.innerHTML=(err?'<span class="err">':'<span>')+esc(t)+'</span>'; };
+const setProg=p=>{ $('#prog').style.display='block'; $('#prog i').style.width=(p*100).toFixed(1)+'%'; };
+
+$('#pickDir').onclick=async()=>{
+  if(window.showDirectoryPicker){
+    try{
+      const dir=await window.showDirectoryPicker();
+      const fs=[]; for await(const [n,h] of dir.entries()){ if(h.kind==='file'&&/\.csv$/i.test(n)) fs.push(await h.getFile()); }
+      if(!fs.length){ setStatus('No .csv files in that folder. Pick the folder that holds the reports.',1); return; }
+      return ingest(fs);
+    }catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  $('#dirInput').click();
+};
+$('#pickFiles').onclick=()=>$('#fileInput').click();
+$('#dirInput').onchange=e=>ingest([...e.target.files].filter(f=>/\.csv$/i.test(f.name)));
+$('#fileInput').onchange=e=>ingest([...e.target.files].filter(f=>/\.csv$/i.test(f.name)));
+const drop=$('#drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop',async e=>{
+  const items=[...(e.dataTransfer.items||[])], out=[];
+  const walk=async entry=>{
+    if(entry.isFile) return new Promise(r=>entry.file(f=>{ if(/\.csv$/i.test(f.name)) out.push(f); r(); }));
+    if(entry.isDirectory){ const rd=entry.createReader();
+      const batch=await new Promise(r=>rd.readEntries(r));
+      for(const en of batch) await walk(en); }
+  };
+  for(const it of items){ const en=it.webkitGetAsEntry&&it.webkitGetAsEntry(); if(en) await walk(en); }
+  if(out.length) ingest(out);
+  else ingest([...(e.dataTransfer.files||[])].filter(f=>/\.csv$/i.test(f.name)));
+});
+$('#reload').onclick=()=>{ $('#loader').classList.remove('hide'); $('#app').classList.add('hide'); $('#filelist').innerHTML=''; setStatus(''); $('#prog').style.display='none'; };
+
+const yieldUI=()=>new Promise(r=>setTimeout(r,0));
+
+async function ingest(fileList){
+  if(!fileList||!fileList.length){ setStatus('No CSV files found.',1); return; }
+  setStatus('Reading '+fileList.length+' file'+(fileList.length>1?'s':'')+'…'); setProg(0.02);
+  const meta=[];
+  for(let i=0;i<fileList.length;i++){
+    const f=fileList[i];
+    const headTxt=await f.slice(0,4000).text();
+    const firstLine=headTxt.split(/\r?\n/)[0];
+    const cls=classify(firstLine,f.name);
+    const date=sniffDate(f.name,f.lastModified);
+    meta.push({file:f,name:f.name,size:f.size,type:cls.type,detail:cls.detail,byName:cls.byName,date});
+    setProg(0.02+0.08*(i+1)/fileList.length);
+  }
+  const usable=meta.filter(m=>m.type);
+  if(!usable.length){ setStatus('Those CSVs don\'t look like the fee or transport reports. Check the folder.',1);
+    $('#filelist').innerHTML=meta.map(m=>'<div>'+esc(m.name)+' — unrecognised</div>').join(''); return; }
+
+  // de-duplicate: same type + same date -> keep the largest copy
+  const best=new Map();
+  const conf=m=>m.detail?(m.type==='fees'?m.detail.fee-m.detail.transport:m.detail.transport-m.detail.fee):0;
+  usable.forEach(m=>{ const k=m.type+'|'+m.date, p=best.get(k);
+    if(!p||conf(m)>conf(p)||(conf(m)===conf(p)&&m.size>p.size)) best.set(k,m); });
+  const kept=[...best.values()];
+  // each report type gets its own run of dates, so a missing transport file never drags the fee comparison off
+  const pair={};
+  ['fees','transport'].forEach(t=>{
+    const ds=[...new Set(kept.filter(m=>m.type===t).map(m=>m.date))].sort().reverse();
+    pair[t]={d0:ds[0]||null,d1:ds[1]||null,d2:ds[2]||null,all:ds};
+  });
+  const pickMax=k=>[pair.fees[k],pair.transport[k]].filter(Boolean).sort().pop()||null;
+  S.dates={d0:pickMax('d0'),d1:pickMax('d1'),d2:pickMax('d2')};
+  S.pair=pair;
+  const slotName=(t,d)=>{ const P=pair[t]||{}; const head=t==='fees'?'fee':'transport';
+    return d===P.d0?head+' · latest':d===P.d1?head+' · previous':d===P.d2?head+' · day before':null; };
+  S.files=meta.map(m=>{ const slot=m.type&&kept.includes(m)?slotName(m.type,m.date):null;
+    return {...m,slot,used:!!slot}; });
+
+  $('#filelist').innerHTML=S.files.slice().sort((a,b)=>(a.type||'z').localeCompare(b.type||'z')||b.date.localeCompare(a.date))
+    .map(m=>'<div>'+(m.used?'<span style="color:var(--gold)">✓</span> ':'<span style="color:#41505f">·</span> ')+esc(m.name)+
+      ' — '+(m.type||'unrecognised')+' · '+m.date+' · '+(m.size/1048576).toFixed(1)+' MB'+(m.used?'':' <span style="color:#41505f">(skipped: duplicate or older)</span>')+'</div>').join('');
+
+  const pickF=(t,d)=>kept.find(m=>m.type===t&&m.date===d);
+  /* The newest export and the settled day's export are both read in full, so every figure on the
+     settled view — balances, cycles, bands — is the position at the close of that day, not a
+     number borrowed from a file that is still moving. The day before it only has to supply paid
+     amounts for the subtraction, so a lookup map is enough. */
+  const jobs=[['fees',pair.fees.d0,'F0','set'],['transport',pair.transport.d0,'T0','set'],
+              ['fees',pair.fees.d1,'F1','set'],['transport',pair.transport.d1,'T1','set'],
+              ['fees',pair.fees.d2,'FM2','map'],['transport',pair.transport.d2,'TM2','map']];
+  let step=0;
+  for(const [t,d,slot,how] of jobs){
+    step++;
+    if(!d) continue;
+    const m=pickF(t,d); if(!m) continue;
+    setStatus('Reading '+m.name.slice(0,58)+' ('+(m.size/1048576).toFixed(0)+' MB)…');
+    setProg(0.1+0.85*(step-1)/jobs.length); await yieldUI();
+    try{
+      const txt=await m.file.text();
+      S[slot]= how==='set' ? buildDataset(txt,t) : buildPrior(txt,t);
+    }catch(err){ setStatus('Could not read '+m.name+' — '+err.message,1); console.error(err); }
+    setProg(0.1+0.85*step/jobs.length); await yieldUI();
+  }
+  if(!S.F0&&!S.T0){ setStatus('No usable report for the latest date.',1); return; }
+  setStatus('Indexing…'); await yieldUI();
+  S.FM0=S.F0?mapFromDataset(S.F0):null; S.FM1=S.F1?mapFromDataset(S.F1):null;
+  S.TM0=S.T0?mapFromDataset(S.T0):null; S.TM1=S.T1?mapFromDataset(S.T1):null;
+  setProg(1); setStatus('Building dashboard…'); await yieldUI();
+  boot();
+}
+</script>
+<script>
+/* ============================= ANALYTICS ============================= */
+const DUE_BANDS=[[0,0,'Cleared or in advance'],[1,10000,'₹1 – 10 K'],[10000,25000,'₹10 – 25 K'],[25000,50000,'₹25 – 50 K'],
+                 [50000,100000,'₹50 K – 1 L'],[100000,Infinity,'Above ₹1 L']];
+
+function joinTransportToFees(){ joinPair(S.T0,S.F0); joinPair(S.T1,S.F1); }
+function joinPair(T,F){
+  if(!T||!F) return;
+  for(let i=0;i<T.N;i++){
+    const fi=F.index.get(T.codes[i]);
+    if(fi===undefined){ T.lo[i]=T.IL.id('Not in fee file'); continue; }
+    T.lo[i]=T.IL.id(F.IL.get(F.lo[fi]));
+    if(T.IG.get(T.gr[i])===BLANK) T.gr[i]=T.IG.id(F.IG.get(F.gr[fi]));
+    if(T.IT.get(T.ty[i])===BLANK) T.ty[i]=T.IT.id(F.IT.get(F.ty[fi]));
+  }
+  T.hasLoc=true;
+}
+
+/* ---- which day is being reported on ----
+   Settled focus reads the d1 export itself and subtracts the d2 export:
+       collection on d1  =  paid in the d1 file  −  paid in the d2 file
+   so every cumulative figure on that view is "till d1", from d1's own file.
+   Live focus reads the d0 export and subtracts d1 the same way. ---- */
+function applyFocus(){
+  const settled = S.focus==='settled';
+  if(settled){
+    S.fees=S.F1||null;      S.priorFees=S.FM2||null;  S.nextFees=S.FM0||null;
+    S.transport=S.T1||null; S.priorTr=S.TM2||null;    S.nextTr=S.TM0||null;
+  }else{
+    S.fees=S.F0||null;      S.priorFees=S.FM1||null;  S.nextFees=null;
+    S.transport=S.T0||null; S.priorTr=S.TM1||null;    S.nextTr=null;
+  }
+  CACHE.key=null;
+}
+const settledOK = () => !!(S.dates && S.dates.d2) && !!(S.okSettled);
+const focusDay  = () => S.focus==='settled' ? S.dates.d1 : S.dates.d0;
+const baseDay   = () => S.focus==='settled' ? S.dates.d2 : S.dates.d1;
+const focusName = () => S.focus==='settled' ? 'Settled day' : 'Latest export';
+const dayShort  = d => { if(!d) return '—'; const x=new Date(d+'T00:00:00');
+  return isNaN(x)?d:x.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()]; };
+
+function idSet(interner,names){
+  const out=new Set(); if(!names||!names.size) return null;
+  names.forEach(n=>{ const i=interner.list.indexOf(n); if(i>=0) out.add(i); });
+  return out;
+}
+function filterIdx(D,f){
+  const q=(f.q||'').trim().toLowerCase();
+  const B=idSet(D.IB,f.br), L=idSet(D.IL,f.loc), G=idSet(D.IG,f.gr), T=idSet(D.IT,f.ty);
+  if((f.br.size&&(!B||!B.size))||(f.loc.size&&(!L||!L.size))||(f.gr.size&&(!G||!G.size))||(f.ty.size&&(!T||!T.size))) return [];
+  const out=[];
+  for(let i=0;i<D.N;i++){
+    if(B&&!B.has(D.br[i])) continue;
+    if(L&&!L.has(D.lo[i])) continue;
+    if(G&&!G.has(D.gr[i])) continue;
+    if(T&&!T.has(D.ty[i])) continue;
+    if(f.st==='A'&&(D.st[i]&3)!==1) continue;
+    if(f.st==='I'&&(D.st[i]&3)!==2) continue;
+    if(q && !(D.names[i].toLowerCase().includes(q)||D.codes[i].toLowerCase().includes(q))) continue;
+    out.push(i);
+  }
+  return out;
+}
+
+function blankAgg(name,loc){return{name,loc,n:0,nA:0,riders:0,net:0,paid:0,due:0,fine:0,conc:0,act:0,d:0,payers:0,zero:0,full:0,newN:0,dNext:0,payersNext:0};}
+function bump(o,D,i,base,delta,next){
+  o.n++;
+  if((D.st[i]&3)===1) o.nA++;   /* strength counts permanent-active students only */
+  o.net+=D.vals[base+2]; o.paid+=D.vals[base+3]; o.due+=D.vals[base+5];
+  o.fine+=D.vals[base+4]; o.conc+=D.vals[base+1]; o.act+=D.vals[base];
+  o.d+=delta; if(delta>0) o.payers++;
+  o.dNext+=next; if(next>0) o.payersNext++;
+  if(D.vals[base+3]<=0 && D.vals[base+2]>0) o.zero++;
+  if(D.vals[base+5]<=0 && D.vals[base+2]>0) o.full++;
+}
+
+/* D   = the export for the day being reported on (all cumulative figures come from here)
+   pPrev = the export from the day before it   -> day collection = D.paid - pPrev.paid
+   pNext = a newer, still-moving export        -> "since then", shown but never mixed in */
+function analyze(D,pPrev,pNext,f,tagKind){
+  const idx=filterIdx(D,f);
+  const A={kind:tagKind,n:0,act:0,conc:0,net:0,paid:0,due:0,fine:0,
+    dPaid:0,payers:0,revCount:0,revAmt:0,newCount:0,newPaid:0,dDue:0,
+    dNext:0,payersNext:0,matched:0,nA:0,riders:0,
+    byBranch:new Map(),byLoc:new Map(),byGrade:new Map(),byType:new Map(),byPlan:new Map(),
+    buckets:D.buckets.map(b=>({key:b.key,label:b.label,net:0,paid:0,due:0})),
+    zero:0,full:0,partial:0,zeroDue:0,dueBands:DUE_BANDS.map(b=>({label:b[2],n:0,amt:0})),
+    pay:[],idx,emi:blankAgg('On EMI / finance',''),noemi:blankAgg('Direct payer','')};
+  const B=D.B, ST=D.STRIDE;
+  for(const i of idx){
+    const base=i*ST, code=D.codes[i], brn=D.IB.get(D.br[i]);
+    const net=D.vals[base+2], paid=D.vals[base+3], due=D.vals[base+5];
+    A.n++; if((D.st[i]&3)===1) A.nA++;
+    A.act+=D.vals[base]; A.conc+=D.vals[base+1]; A.net+=net; A.paid+=paid; A.due+=due; A.fine+=D.vals[base+4];
+
+    const rp=pPrev?pPrev.get(code,brn):null, rn=pNext?pNext.get(code,brn):null;
+    let delta=0, next=0, isNew=false;
+    if(pPrev){ if(rp){ delta=paid-rp.paid; A.dDue+=due-rp.due; A.matched++; } else { delta=paid; isNew=true; } }
+    if(pNext&&rn) next=rn.paid-paid;
+    A.dNext+=next; if(next>0) A.payersNext++;
+    if(isNew&&delta>0){ A.newCount++; A.newPaid+=delta; }
+
+    if(delta>0){ A.dPaid+=delta; A.payers++;
+      A.pay.push({amt:delta,isNew,due,name:D.names[i],code,br:brn,lo:D.IL.get(D.lo[i]),
+        gr:D.IG.get(D.gr[i]),kind:tagKind,cleared:due<=0});
+    } else if(delta<0){ A.revCount++; A.revAmt+=delta; A.dPaid+=delta;
+      A.pay.push({amt:delta,isNew:false,due,name:D.names[i],code,br:brn,lo:D.IL.get(D.lo[i]),
+        gr:D.IG.get(D.gr[i]),kind:tagKind,cleared:false}); }
+
+    for(let b=0;b<B;b++){ const o=A.buckets[b]; o.net+=D.vals[base+6+b*3]; o.paid+=D.vals[base+6+b*3+1]; o.due+=D.vals[base+6+b*3+2]; }
+    if(net>0){ if(paid<=0){A.zero++;A.zeroDue+=due;} else if(due<=0){A.full++;} else A.partial++; }
+    for(let k=0;k<DUE_BANDS.length;k++){ const [lo,hi]=DUE_BANDS[k];
+      if((k===0&&due<=0)||(k>0&&due>=lo&&due<hi)){ A.dueBands[k].n++; A.dueBands[k].amt+=due; break; } }
+
+    const ln=D.IL.get(D.lo[i]), gn=D.IG.get(D.gr[i]), tn=D.IT.get(D.ty[i]), pn=D.IP.get(D.pl[i]);
+    let o=A.byBranch.get(brn); if(!o){o=blankAgg(brn,ln);A.byBranch.set(brn,o);} bump(o,D,i,base,delta,next); if(isNew)o.newN++;
+    o=A.byLoc.get(ln);   if(!o){o=blankAgg(ln,'');A.byLoc.set(ln,o);}   bump(o,D,i,base,delta,next);
+    o=A.byGrade.get(gn); if(!o){o=blankAgg(gn,'');A.byGrade.set(gn,o);} bump(o,D,i,base,delta,next);
+    o=A.byType.get(tn);  if(!o){o=blankAgg(tn,'');A.byType.set(tn,o);}  bump(o,D,i,base,delta,next);
+    if(pn!==BLANK){ o=A.byPlan.get(pn); if(!o){o=blankAgg(pn,'');A.byPlan.set(pn,o);} bump(o,D,i,base,delta,next); }
+    bump(D.fin[i]?A.emi:A.noemi,D,i,base,delta,next);
+  }
+  A.pay.sort((a,b)=>Math.abs(b.amt)-Math.abs(a.amt));
+  return A;
+}
+
+function mergeMaps(m1,m2){
+  const out=new Map();
+  const add=(m,second)=>{ for(const [k,v] of m){ let o=out.get(k); if(!o){o=blankAgg(k,v.loc);out.set(k,o);}
+    ['n','net','paid','due','fine','conc','act','d','payers','zero','full','newN','dNext','payersNext'].forEach(x=>o[x]+=v[x]||0);
+    // a student on the transport book is the same child as on the fee book, so strength is not added twice
+    if(second){ o.riders+=v.nA||0; if(!o.nA) o.nA=v.nA||0; } else o.nA+=v.nA||0;
+    if(!o.loc&&v.loc)o.loc=v.loc; } };
+  add(m1,false); add(m2,true); return out;
+}
+function mergeA(a,b){
+  if(!a) return b; if(!b) return a;
+  const M={kind:'both'};
+  ['n','act','conc','net','paid','due','fine','dPaid','payers','revCount','revAmt','newCount','newPaid','dDue',
+   'dNext','payersNext','matched','zero','full','partial','zeroDue'].forEach(k=>M[k]=(a[k]||0)+(b[k]||0));
+  M.nA = a.nA||b.nA||0; M.riders = b.nA||0;   // fee roll is the headcount; transport is a subset of it
+  M.byBranch=mergeMaps(a.byBranch,b.byBranch); M.byLoc=mergeMaps(a.byLoc,b.byLoc);
+  M.byGrade=mergeMaps(a.byGrade,b.byGrade); M.byType=mergeMaps(a.byType,b.byType);
+  M.byPlan=a.byPlan; M.emi=a.emi; M.noemi=a.noemi;
+  M.buckets=(()=>{ const mp=new Map();
+    const add=arr=>arr.forEach(x=>{ let o=mp.get(x.label);
+      if(!o){o={key:x.key,label:x.label,net:0,paid:0,due:0};mp.set(x.label,o);}
+      o.net+=x.net;o.paid+=x.paid;o.due+=x.due; });
+    add(a.buckets); add(b.buckets); return [...mp.values()]; })();
+  M.dueBands=a.dueBands.map((x,i)=>({label:x.label,n:x.n+b.dueBands[i].n,amt:x.amt+b.dueBands[i].amt}));
+  M.pay=[...a.pay,...b.pay].sort((x,y)=>Math.abs(y.amt)-Math.abs(x.amt));
+  M.feesPart=a; M.trPart=b;
+  return M;
+}
+
+/* ---- a snapshot pair has to be the same report on two days: same size, same billing.
+       If it isn't, the day movement is meaningless and the pair is rejected outright. ---- */
+function validatePair(D,P,label){
+  if(!D||!P) return null;
+  let netD=0; for(let i=0;i<D.N;i++) netD+=D.vals[i*D.STRIDE+2];
+  let hit=0; for(let i=0;i<D.N;i++) if(P.has(D.codes[i],D.IB.get(D.br[i]))) hit++;
+  const overlap=D.N?hit/D.N:0, drift=netD>0?Math.abs(P.netTot-netD)/netD:1;
+  const cyc=(D.cycleNames||[]).join('|')===(P.cycleNames||[]).join('|');
+  const ok = overlap>=0.75 && drift<=0.10 && cyc;
+  return {label,overlap,drift,rows:P.size,netD,netP:P.netTot,cyc,ok};
+}
+let CACHE={key:null};
+function fkey(f){ return [[...f.loc].join('~'),[...f.br].join('~'),[...f.gr].join('~'),[...f.ty].join('~'),f.st,f.q].join('|'); }
+function current(){
+  const key=S.scope+'|'+S.focus+'|'+fkey(S.filt);
+  if(CACHE.key===key) return CACHE;
+  const AF=S.fees?analyze(S.fees,S.priorFees,S.nextFees,S.filt,'fees'):null;
+  const AT=S.transport?analyze(S.transport,S.priorTr,S.nextTr,S.filt,'transport'):null;
+  const A = S.scope==='fees'?AF : S.scope==='transport'?AT : mergeA(AF,AT);
+  CACHE={key,A,AF,AT}; return CACHE;
+}
+
+/* ---- branch comparison: one pass, keeps per-cycle detail and a network ranking ---- */
+function compareData(names){
+  const want=new Set(names), out=new Map(), all=new Map();
+  const run=(D,pPrev,pNext)=>{
+    if(!D) return;
+    const f={...S.filt,br:new Set()};          // the branch filter must not limit what can be compared
+    const idx=filterIdx(D,f), ST=D.STRIDE;
+    for(const i of idx){
+      const brn=D.IB.get(D.br[i]), base=i*ST;
+      let a=all.get(brn); if(!a){a={net:0,paid:0};all.set(brn,a);}
+      a.net+=D.vals[base+2]; a.paid+=D.vals[base+3];
+      if(!want.has(brn)) continue;
+      let o=out.get(brn);
+      if(!o){ o=blankAgg(brn,D.IL.get(D.lo[i])); o.buckets=new Map(); out.set(brn,o); }
+      const code=D.codes[i], rp=pPrev?pPrev.get(code,brn):null, rn=pNext?pNext.get(code,brn):null;
+      const paid=D.vals[base+3];
+      const delta = pPrev ? (rp ? paid-rp.paid : paid) : 0;
+      const next  = (pNext&&rn) ? rn.paid-paid : 0;
+      const before=o.nA; bump(o,D,i,base,delta,next);
+      if(D.kind==='transport'&&S.scope==='both'){ o.riders+=(o.nA-before); o.nA=before; }
+      for(let b=0;b<D.B;b++){ const lab=D.buckets[b].label;
+        let q=o.buckets.get(lab); if(!q){q={net:0,paid:0,due:0};o.buckets.set(lab,q);}
+        q.net+=D.vals[base+6+b*3]; q.paid+=D.vals[base+6+b*3+1]; q.due+=D.vals[base+6+b*3+2]; }
+    }
+  };
+  if(S.scope!=='transport') run(S.fees,S.priorFees,S.nextFees);
+  if(S.scope!=='fees') run(S.transport,S.priorTr,S.nextTr);
+  let tn=0,tp=0; all.forEach(a=>{tn+=a.net;tp+=a.paid;});
+  return {rows:names.map(n=>out.get(n)).filter(Boolean),
+          rank:[...all.entries()].sort((a,b)=>pc(b[1].paid,b[1].net)-pc(a[1].paid,a[1].net)).map(e=>e[0]),
+          netPc:pc(tp,tn)};
+}
+</script>
+<script>
+/* ============================= RENDER ============================= */
+function railHTML(paidPrev,today,due,slim){
+  const tot=Math.max(paidPrev+Math.max(today,0)+Math.max(due,0),1);
+  const a=Math.max(paidPrev,0)/tot*100, b=Math.max(today,0)/tot*100, c=Math.max(due,0)/tot*100;
+  return '<div class="rail'+(slim?' slim':'')+'"><div class="seg paidY" style="width:'+a.toFixed(2)+'%"></div>'+
+    '<div class="seg today" style="width:'+b.toFixed(2)+'%"></div>'+
+    '<div class="seg due" style="width:'+c.toFixed(2)+'%"></div></div>';
+}
+function kpi(k,v,d,cls){ return '<div class="kpi"><div class="k">'+k+'</div><div class="v '+(cls||'')+'">'+v+'</div>'+
+  (d?'<div class="d">'+d+'</div>':'')+'</div>'; }
+function barList(rows,valFn,labelFn,rightFn){
+  const mx=Math.max(...rows.map(valFn),1);
+  return rows.map(r=>'<div class="barrow"><div class="nm" title="'+esc(labelFn(r))+'">'+esc(labelFn(r))+'</div>'+
+      '<div class="bartrack"><div style="width:'+(valFn(r)/mx*100).toFixed(2)+'%;background:'+(r._c||'var(--gold)')+'"></div></div>'+
+      '<div class="val">'+rightFn(r)+'</div></div>').join('');
+}
+function dayCaption(){
+  return S.focus==='settled'
+    ? 'Closed day '+dayShort(S.dates.d1)+' · measured from the '+dayShort(S.dates.d2)+' export to the '+dayShort(S.dates.d1)+' export'
+    : 'Running total for '+dayShort(S.dates.d0)+' · still moving until the day closes';
+}
+
+function insights(A,AF,AT){
+  const out=[]; const add=(t,h)=>out.push('<div class="ins"><span class="tag '+t+'">'+t+'</span><div>'+h+'</div></div>');
+  const days = A.dPaid>0 ? A.due/A.dPaid : Infinity;
+  add('info','<b>'+dayShort(focusDay())+'</b> brought in <b>'+inr(A.dPaid)+'</b> from <b>'+A.payers.toLocaleString('en-IN')+
+    '</b> paying students. At that rate the outstanding <b>'+rup(A.due)+'</b> takes <b>'+(isFinite(days)?Math.ceil(days):'∞')+'</b> more days to clear.');
+  if(S.focus==='settled'&&(S.nextFees||S.nextTr)) add('info','The '+dayShort(S.dates.d0)+' file is at <b>'+inr(A.dNext)+'</b> so far from <b>'+A.payersNext+
+    '</b> students — treat it as provisional until tomorrow\'s export lands.');
+  const br=[...A.byBranch.values()];
+  const movers=br.filter(b=>b.d>0).sort((a,b)=>b.d-a.d).slice(0,3);
+  if(movers.length) add('good','Engine rooms on '+dayShort(focusDay())+': '+movers.map(m=>esc(m.name)+' <b>'+inr(m.d)+'</b>').join(' · ')+'.');
+  const silent=br.filter(b=>b.d<=0&&b.due>0);
+  if(silent.length){ const sd=silent.reduce((s,b)=>s+b.due,0);
+    add('crit','<b>'+silent.length+'</b> of '+br.length+' branches collected nothing that day, sitting on <b>'+rup(sd)+'</b>. Biggest silences: '+
+      silent.sort((a,b)=>b.due-a.due).slice(0,3).map(b=>esc(b.name)+' ('+rup(b.due)+' open)').join(', ')+'.'); }
+  const lag=br.filter(b=>b.n>=100).sort((a,b)=>pc(a.paid,a.net)-pc(b.paid,b.net)).slice(0,3);
+  if(lag.length) add('watch','Weakest collection % among branches with 100+ students: '+lag.map(b=>esc(b.name)+' <b>'+p1(pc(b.paid,b.net))+'</b>').join(' · ')+
+    '. Network average is <b>'+p1(pc(A.paid,A.net))+'</b>.');
+  if(A.zero) add('crit','<b>'+A.zero.toLocaleString('en-IN')+'</b> students have paid nothing at all this year — <b>'+rup(A.zeroDue)+'</b> locked up, '+
+    p1(pc(A.zeroDue,A.due))+' of all outstanding. That list is the highest-yield calling queue.');
+  let cum=0,cnt=0; for(const b of br.slice().sort((a,b)=>b.due-a.due)){ cum+=b.due; cnt++; if(cum>=A.due*0.8) break; }
+  if(A.due>0) add('info','<b>'+cnt+'</b> branches hold 80% of the outstanding. Concentrate the week there rather than spreading calls evenly.');
+  const worstB=A.buckets.filter(b=>b.net>0).sort((a,b)=>pc(a.paid,a.net)-pc(b.paid,b.net))[0];
+  if(worstB) add('watch','Weakest instalment cycle: <b>'+esc(worstB.label)+'</b> at <b>'+p1(pc(worstB.paid,worstB.net))+'</b> collected, <b>'+
+    rup(worstB.due)+'</b> pending. Calling scripts should lead with this instalment.');
+  if(A.revCount) add('watch','<b>'+A.revCount+'</b> record'+(A.revCount>1?'s':'')+' moved backwards by <b>'+inr(Math.abs(A.revAmt))+
+    '</b> — refunds, reversals or a corrected posting. Worth checking with accounts before the day is reported.');
+  if(A.newCount) add('info','<b>'+A.newCount+'</b> record'+(A.newCount>1?'s':'')+' appeared only in the newer file (admissions, re-activations or a branch transfer), carrying <b>'+
+    inr(A.newPaid)+'</b> that is counted in the day\'s figure.');
+  if(AF&&AT&&S.scope==='both') add('info','Split of the day: fees <b>'+inr(AF.dPaid)+'</b> · transport <b>'+inr(AT.dPaid)+
+    '</b>. Transport sits at '+p1(pc(AT.paid,AT.net))+' collected against fees at '+p1(pc(AF.paid,AF.net))+'.');
+  if(A.conc>0) add('info','Concessions granted so far: <b>'+rup(A.conc)+'</b>, '+p1(pc(A.conc,A.act))+' of gross fee. Targets should be set against net billing, not gross.');
+  return out.join('');
+}
+
+/* ---- pace helpers ---- */
+function paceEnd(){
+  if(!S.paceEnd){ const d=new Date((S.dates.d0||S.dates.d1)+'T00:00:00');
+    const e=new Date(d.getFullYear(),d.getMonth()+1,0);
+    S.paceEnd=e.getFullYear()+'-'+String(e.getMonth()+1).padStart(2,'0')+'-'+String(e.getDate()).padStart(2,'0'); }
+  return S.paceEnd;
+}
+function paceDays(){
+  const a=new Date((S.dates.d0||S.dates.d1)+'T00:00:00'), b=new Date(paceEnd()+'T00:00:00');
+  let n=0; const c=new Date(a); c.setDate(c.getDate()+1);
+  while(c<=b){ if(c.getDay()!==0) n++; c.setDate(c.getDate()+1); }
+  return n;
+}
+function paceSlip(A){
+  if(A.dPaid<=0) return 'never';
+  const need=Math.ceil(A.due/A.dPaid); const d=new Date((S.dates.d0||S.dates.d1)+'T00:00:00');
+  let left=need; while(left>0){ d.setDate(d.getDate()+1); if(d.getDay()!==0) left--; }
+  return d.toISOString().slice(0,10);
+}
+
+function viewOverview(){
+  const {A,AF,AT}=current();
+  const prevPaid=A.paid-Math.max(A.dPaid,0);   // collected up to the start of the reported day
+  const loc=[...A.byLoc.values()].sort((a,b)=>b.net-a.net);
+  const br=[...A.byBranch.values()];
+  const topToday=br.filter(b=>b.d>0).sort((a,b)=>b.d-a.d).slice(0,10);
+  const bestPc=br.filter(b=>b.n>=50).sort((a,b)=>pc(b.paid,b.net)-pc(a.paid,a.net)).slice(0,10);
+  const worstPc=br.filter(b=>b.n>=50).sort((a,b)=>pc(a.paid,a.net)-pc(b.paid,b.net)).slice(0,10);
+  const need=A.due/Math.max(paceDays(),1);
+
+  return `
+  <div class="grid" style="margin-bottom:14px">
+    <div class="hero">
+      <div class="herogrid">
+        <div>
+          <div class="eyebrow">${S.focus==='settled'?'Collected on '+S.dates.d1+' (final)':'Collected so far on '+S.dates.d0+' (provisional)'}</div>
+          <div class="todayfig">${inr(A.dPaid)}</div>
+          <div class="todaysub"><b>${A.payers.toLocaleString('en-IN')}</b> students paid · average ticket <b>${inr(A.payers?A.dPaid/A.payers:0)}</b>${A.dDue?' · due fell by <b>'+inr(Math.abs(A.dDue))+'</b>':''}</div>
+          <div class="mini" style="margin-top:8px">${dayCaption()}</div>
+          ${S.focus==='settled'&&S.nextFees!==undefined&&(S.nextFees||S.nextTr)?'<div class="mini" style="margin-top:4px">Since this export, <b class="num" style="color:var(--goldhi)">'+inr(A.dNext)+'</b> more has come in from '+A.payersNext+' students on the '+dayShort(S.dates.d0)+' file, which is still moving.</div>':''}
+        </div>
+        <div>
+          <div class="eyebrow" style="margin-bottom:8px">Position as of the ${dayShort(S.dates.d0)} export · ${scopeLabel()}</div>
+          ${railHTML(prevPaid,A.paid-prevPaid,A.due)}
+          <div class="raillegend">
+            <span><i class="dot" style="background:var(--gold)"></i>Collected earlier ${rup(prevPaid)}</span>
+            <span><i class="dot" style="background:var(--goldhi)"></i>${S.focus==='settled'?'Since '+dayShort(S.dates.d2):'Added '+dayShort(S.dates.d0)} ${rup(A.paid-prevPaid)}</span>
+            <span><i class="dot" style="background:#2A3441"></i>Still due ${rup(A.due)}</span>
+            <span style="margin-left:auto;color:var(--gold);font-family:var(--mono)">${p1(pc(A.paid,A.net))} collected</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="padding:12px 14px">
+      <div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
+        <div><div class="eyebrow">Pace check</div>
+          <div class="mini" style="margin-top:2px">Clear the balance by
+            <input type="date" id="paceEnd" value="${paceEnd()}" style="background:var(--panel2);border:1px solid var(--line2);color:var(--ink);padding:2px 6px;border-radius:4px;font-family:var(--mono)"></div></div>
+        <div><div class="eyebrow">Working days left</div><div class="num gold" style="font-size:18px">${paceDays()}</div></div>
+        <div><div class="eyebrow">Needed per day</div><div class="num" style="font-size:18px">${inr(need)}</div></div>
+        <div><div class="eyebrow">${dayShort(focusDay())} actual</div><div class="num" style="font-size:18px">${inr(A.dPaid)}</div></div>
+        <div style="flex:1;min-width:220px">
+          <div class="eyebrow">That day against the run rate</div>
+          <div style="font-size:12px;margin-top:3px" class="${A.dPaid>=need?'up':'down'}">
+            ${A.dPaid>=need ? 'Ahead by '+inr(A.dPaid-need)+' — hold this rate and the balance closes on time.'
+                            : 'Short by '+inr(need-A.dPaid)+' — at that rate the deadline slips to '+paceSlip(A)+'.'}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="kpis">
+      ${kpi('Net billed',rup(A.net),inr(A.net))}
+      ${kpi('Collected till '+dayShort(focusDay()),rup(A.paid),p1(pc(A.paid,A.net))+' of net · '+inr(A.paid),'gold')}
+      ${kpi('Outstanding at '+dayShort(focusDay()),rup(A.due),p1(pc(A.due,A.net))+' of net','down')}
+      ${kpi('Active students',A.nA.toLocaleString('en-IN'),(A.riders?A.riders.toLocaleString('en-IN')+' of them on transport · ':'')+A.full.toLocaleString('en-IN')+' fully paid'+(A.n!==A.nA?' · '+(A.n-A.nA).toLocaleString('en-IN')+' inactive records also in view':''))}
+      ${kpi('Never paid',A.zero.toLocaleString('en-IN'),rup(A.zeroDue)+' locked','down')}
+      ${kpi('Avg due / student',inr(A.nA?A.due/A.nA:0),'across '+A.nA.toLocaleString('en-IN')+' active students')}
+      ${kpi('Concession given',rup(A.conc),p1(pc(A.conc,A.act))+' of gross')}
+      ${kpi('Late fee on books',rup(A.fine),'levied this year')}
+    </div>
+  </div>
+
+  <div class="two" style="margin-bottom:14px">
+    <div class="card">
+      <div class="cardhead"><div><h3>City position</h3><div class="sub">Share of net fee collected, largest billing first</div></div></div>
+      ${loc.map(l=>'<div class="barrow"><div class="nm" title="'+esc(l.name)+'">'+esc(l.name)+'</div>'+
+        '<div class="bartrack"><div style="width:'+pc(l.paid,l.net).toFixed(2)+'%;background:var(--gold)"></div></div>'+
+        '<div class="val">'+p1(pc(l.paid,l.net))+'</div></div>').join('')}
+    </div>
+    <div class="card">
+      <div class="cardhead"><div><h3>Where the money came from</h3><div class="sub">Top 10 branches on ${dayShort(focusDay())}</div></div></div>
+      ${topToday.length?barList(topToday,r=>r.d,r=>r.name,r=>inr(r.d)):'<div class="mini">No branch recorded a payment that day.</div>'}
+    </div>
+  </div>
+
+  <div class="two" style="margin-bottom:14px">
+    <div class="card">
+      <div class="cardhead"><div><h3>Instalment cycle health</h3><div class="sub">Each cycle billed, collected and pending</div></div></div>
+      <div class="tblwrap" style="max-height:none">
+      <table><thead><tr><th class="no">Cycle</th><th class="no">Progress</th><th class="n no">Net</th><th class="n no">Collected</th><th class="n no">Due</th><th class="n no">%</th></tr></thead><tbody>
+      ${A.buckets.filter(b=>b.net>0).map(b=>'<tr><td>'+esc(b.label)+'</td>'+
+        '<td style="width:150px">'+railHTML(b.paid,0,b.due,true)+'</td>'+
+        '<td class="n">'+rup(b.net)+'</td><td class="n gold">'+rup(b.paid)+'</td><td class="n">'+rup(b.due)+'</td>'+
+        '<td class="n">'+p1(pc(b.paid,b.net))+'</td></tr>').join('')}
+      </tbody></table></div>
+      <div class="mini" style="margin-top:8px">Later cycles legitimately show low collection if they aren't due yet — read this against the fee calendar.</div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><div><h3>How the outstanding is spread</h3><div class="sub">Students grouped by what they still owe</div></div></div>
+      <div class="tblwrap" style="max-height:none">
+      <table><thead><tr><th class="no">Band</th><th class="n no">Students</th><th class="n no">Share</th><th class="n no">Amount</th><th class="n no">Share of due</th></tr></thead><tbody>
+      ${A.dueBands.map(b=>'<tr><td>'+b.label+'</td><td class="n">'+b.n.toLocaleString('en-IN')+'</td>'+
+        '<td class="n">'+p1(pc(b.n,A.n||1))+'</td><td class="n">'+rup(b.amt)+'</td><td class="n gold">'+p1(pc(b.amt,A.due))+'</td></tr>').join('')}
+      </tbody></table></div>
+      <div class="mini" style="margin-top:8px">A negative amount against the cleared band means fees received ahead of schedule.</div>
+    </div>
+  </div>
+
+  <div class="two" style="margin-bottom:14px">
+    <div class="card"><h3>Strongest branches</h3><div class="sub">50+ students, by % of net collected</div>
+      ${barList(bestPc.map(r=>({...r,_c:'var(--sage)'})),r=>pc(r.paid,r.net),r=>r.name,r=>p1(pc(r.paid,r.net)))}</div>
+    <div class="card"><h3>Branches needing the call sheet</h3><div class="sub">50+ students, lowest % of net collected</div>
+      ${barList(worstPc.map(r=>({...r,_c:'var(--coral)'})),r=>100-pc(r.paid,r.net),r=>r.name,r=>p1(pc(r.paid,r.net)))}</div>
+  </div>
+
+  <div class="card"><h3>What the numbers are saying</h3><div class="sub">${dayCaption()}</div>${insights(A,AF,AT)}</div>`;
+}
+
+function sortRows(rows,tid,def){
+  const s=S.sort[tid]||def; if(!s) return rows;
+  return rows.slice().sort((a,b)=>{ const x=a[s.k],y=b[s.k];
+    if(typeof x==='string') return s.dir*x.localeCompare(y);
+    return s.dir*((x||0)-(y||0)); });
+}
+function th(tid,k,label,cls){ const s=S.sort[tid]; const on=s&&s.k===k;
+  return '<th class="'+(cls||'')+'" onclick="setSort(\''+tid+'\',\''+k+'\')">'+label+(on?(s.dir<0?' ▾':' ▴'):'')+'</th>'; }
+function setSort(tid,k){ const s=S.sort[tid]; S.sort[tid]=(s&&s.k===k)?{k,dir:-s.dir}:{k,dir:-1}; render(); }
+
+function viewBranches(){
+  const {A}=current();
+  const rows=[...A.byBranch.values()].map(b=>({...b,pcc:pc(b.paid,b.net),avg:b.nA?b.due/b.nA:0,zpc:pc(b.zero,b.nA)}));
+  const tid='br', sorted=sortRows(rows,tid,{k:'due',dir:-1});
+  window.__export_br=()=>exportCSV('branch_performance_'+focusDay(),
+    ['Branch','City','Active students','Net billed','Collected','Outstanding','Collection %','Collected '+focusDay(),'Payers that day','Newer file so far','Never paid','Fully paid','Avg due per student','Fine','Concession'],
+    sorted.map(r=>[r.name,r.loc,r.nA,r.net,r.paid,r.due,r.pcc.toFixed(2),r.d,r.payers,r.dNext,r.zero,r.full,Math.round(r.avg),r.fine,r.conc]));
+  return `<div class="card">
+    <div class="cardhead"><div><h3>Branch scorecard · ${scopeLabel()}</h3>
+      <div class="sub">${rows.length} branches · day column is ${dayShort(focusDay())} · click a column to sort · tick branches in the filter bar to narrow</div></div>
+      <button class="btn" onclick="__export_br()">Export CSV</button></div>
+    <div class="tblwrap"><table><thead><tr>
+      ${th(tid,'name','Branch')}${th(tid,'loc','City')}${th(tid,'nA','Active students','n')}
+      <th class="no">Progress</th>
+      ${th(tid,'net','Net billed','n')}${th(tid,'paid','Collected','n')}${th(tid,'due','Outstanding','n')}
+      ${th(tid,'pcc','Coll %','n')}${th(tid,'d',dayShort(focusDay()),'n')}${th(tid,'payers','Payers','n')}
+      ${S.focus==='settled'&&(S.nextFees||S.nextTr)?th(tid,'dNext',dayShort(S.dates.d0)+' so far','n'):''}
+      ${th(tid,'zero','Never paid','n')}${th(tid,'avg','Avg due','n')}
+    </tr></thead><tbody>
+    ${sorted.map(r=>'<tr><td>'+esc(r.name)+'</td><td style="color:var(--dim)">'+esc(r.loc)+'</td>'+
+      '<td class="n">'+r.nA.toLocaleString('en-IN')+'</td>'+
+      '<td style="width:120px">'+railHTML(r.paid-Math.max(r.d,0),Math.max(r.d,0),r.due,true)+'</td>'+
+      '<td class="n">'+rup(r.net)+'</td><td class="n">'+rup(r.paid)+'</td><td class="n">'+rup(r.due)+'</td>'+
+      '<td class="n '+(r.pcc>=75?'up':r.pcc<50?'down':'gold')+'">'+p1(r.pcc)+'</td>'+
+      '<td class="n '+(r.d>0?'up':r.d<0?'down':'')+'">'+(r.d?inr(r.d):'—')+'</td>'+
+      '<td class="n">'+(r.payers||'—')+'</td>'+
+      (S.focus==='settled'&&(S.nextFees||S.nextTr)?'<td class="n" style="color:var(--muted)">'+(r.dNext?inr(r.dNext):'—')+'</td>':'')+
+      '<td class="n '+(r.zpc>25?'down':'')+'">'+r.zero.toLocaleString('en-IN')+'</td>'+
+      '<td class="n">'+inr(r.avg)+'</td></tr>').join('')}
+    </tbody></table></div></div>`;
+}
+
+/* ---------------- compare ---------------- */
+function viewCompare(){
+  const {A}=current();
+  if(!S.cmp.size) [...A.byBranch.values()].sort((a,b)=>b.due-a.due).slice(0,3).forEach(b=>S.cmp.add(b.name));
+  const picked=[...S.cmp].slice(0,8);
+  const CD=compareData(picked), rows=CD.rows, netRank=CD.rank, avgPc=CD.netPc;
+  const cycles=[...new Set(rows.flatMap(r=>[...r.buckets.keys()]))];
+
+  const metric=(label,fn,fmt,hiGood)=>{
+    const vals=rows.map(fn);
+    const best=hiGood?Math.max(...vals):Math.min(...vals), worst=hiGood?Math.min(...vals):Math.max(...vals);
+    return '<tr><td>'+label+'</td>'+rows.map((r,i)=>'<td class="n '+(rows.length>1&&vals[i]===best?'best':rows.length>1&&vals[i]===worst?'worst':'')+'">'+fmt(vals[i],r)+'</td>').join('')+'</tr>';
+  };
+  window.__export_cmp=()=>exportCSV('branch_comparison_'+focusDay(),
+    ['Metric',...rows.map(r=>r.name)],
+    [['Active students',...rows.map(r=>r.nA)],['Net billed',...rows.map(r=>r.net)],['Collected',...rows.map(r=>r.paid)],
+     ['Outstanding',...rows.map(r=>r.due)],['Collection %',...rows.map(r=>pc(r.paid,r.net).toFixed(2))],
+     ['Collected '+focusDay(),...rows.map(r=>r.d)],['Payers that day',...rows.map(r=>r.payers)],
+     ['Never paid',...rows.map(r=>r.zero)],['Fully paid',...rows.map(r=>r.full)],
+     ['Avg due per student',...rows.map(r=>Math.round(r.nA?r.due/r.nA:0))],['Concession',...rows.map(r=>r.conc)],['Fine',...rows.map(r=>r.fine)],
+     ...cycles.map(c=>['Cycle '+c+' collected %',...rows.map(r=>{const q=r.buckets.get(c);return q&&q.net?pc(q.paid,q.net).toFixed(2):'';})])]);
+
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="cardhead"><div><h3>Compare branches on ${dayShort(focusDay())} · ${scopeLabel()}</h3>
+      <div class="sub">${S.focus==='settled'?'Figures for the closed day — they will not change':'Provisional figures for the day still in progress'} · pick up to 8 branches</div></div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div class="fld"><label>Branches to compare</label><div class="ms" id="msCmp"></div></div>
+        <button class="btn" onclick="__export_cmp()">Export CSV</button>
+      </div></div>
+    ${rows.length<2?'<div class="mini">Pick at least two branches to see a comparison.</div>':''}
+    <div class="cmpgrid" style="margin-top:12px">
+    ${rows.map(r=>{ const pcv=pc(r.paid,r.net), rank=netRank.indexOf(r.name)+1;
+      return '<div class="cmpcol"><h4>'+esc(r.name)+'</h4><div class="city">'+esc(r.loc)+' · rank '+rank+' of '+netRank.length+' branches by collection %</div>'+
+      '<div class="big">'+p1(pcv)+'</div><div class="mini">'+(pcv>=avgPc?'<span class="up">'+p1(pcv-avgPc)+' above':'<span class="down">'+p1(avgPc-pcv)+' below')+' the average of all '+netRank.length+' branches</span></div>'+
+      '<div style="margin-top:9px">'+railHTML(r.paid-Math.max(r.d,0),Math.max(r.d,0),r.due,true)+'</div>'+
+      '<dl><dt>'+dayShort(focusDay())+' collection</dt><dd class="'+(r.d>0?'up':'')+'">'+inr(r.d)+'</dd>'+
+      '<dt>Payers that day</dt><dd>'+r.payers+'</dd>'+
+      '<dt>Active students</dt><dd>'+r.nA.toLocaleString('en-IN')+'</dd>'+
+      '<dt>Outstanding</dt><dd>'+rup(r.due)+'</dd>'+
+      '<dt>Avg due each</dt><dd>'+inr(r.nA?r.due/r.nA:0)+'</dd>'+
+      '<dt>Never paid</dt><dd class="'+(pc(r.zero,r.nA)>20?'down':'')+'">'+r.zero+'</dd></dl></div>';
+    }).join('')}
+    </div>
+  </div>
+
+  ${rows.length>1?`
+  <div class="two" style="margin-bottom:14px">
+    <div class="card"><h3>Collection on ${dayShort(focusDay())}</h3><div class="sub">Absolute rupees banked that day</div>
+      ${barList(rows.map(r=>({...r,_c:'var(--goldhi)'})),r=>Math.max(r.d,0),r=>r.name,r=>inr(r.d))}</div>
+    <div class="card"><h3>Outstanding still open</h3><div class="sub">What each branch is carrying today</div>
+      ${barList(rows.map(r=>({...r,_c:'var(--coral)'})),r=>r.due,r=>r.name,r=>rup(r.due))}</div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <h3>Side by side</h3><div class="sub">Green is the best of the set on that row, red the weakest</div>
+    <div class="tblwrap" style="max-height:none"><table><thead><tr><th class="no">Metric</th>${rows.map(r=>'<th class="n no">'+esc(r.name)+'</th>').join('')}</tr></thead><tbody>
+      ${metric('Active students',r=>r.nA,v=>v.toLocaleString('en-IN'),true)}
+      ${metric('Net billed',r=>r.net,v=>rup(v),true)}
+      ${metric('Collected',r=>r.paid,v=>rup(v),true)}
+      ${metric('Outstanding',r=>r.due,v=>rup(v),false)}
+      ${metric('Collection %',r=>pc(r.paid,r.net),v=>p1(v),true)}
+      ${metric(dayShort(focusDay())+' collection',r=>r.d,v=>inr(v),true)}
+      ${metric('Payers that day',r=>r.payers,v=>String(v),true)}
+      ${metric('Share of students paying that day',r=>pc(r.payers,r.nA),v=>p1(v),true)}
+      ${metric('Fully paid students',r=>pc(r.full,r.nA),v=>p1(v),true)}
+      ${metric('Never paid students',r=>pc(r.zero,r.nA),v=>p1(v),false)}
+      ${metric('Avg due per student',r=>r.nA?r.due/r.nA:0,v=>inr(v),false)}
+      ${metric('Concession as % of gross',r=>pc(r.conc,r.act),v=>p1(v),false)}
+      ${metric('Late fee levied',r=>r.fine,v=>rup(v),false)}
+    </tbody></table></div>
+  </div>
+
+  <div class="card">
+    <h3>Instalment cycles, branch by branch</h3><div class="sub">Percentage of each cycle's net that has been collected</div>
+    <div class="tblwrap" style="max-height:none"><table><thead><tr><th class="no">Cycle</th>${rows.map(r=>'<th class="n no">'+esc(r.name)+'</th>').join('')}</tr></thead><tbody>
+    ${cycles.map(c=>{
+      const vals=rows.map(r=>{const q=r.buckets.get(c); return q&&q.net>0?pc(q.paid,q.net):null;});
+      const real=vals.filter(v=>v!==null); const best=Math.max(...real), worst=Math.min(...real);
+      return '<tr><td>'+esc(c)+'</td>'+vals.map(v=>v===null?'<td class="n" style="color:var(--dim)">—</td>':
+        '<td class="n '+(real.length>1&&v===best?'best':real.length>1&&v===worst?'worst':'')+'">'+p1(v)+'</td>').join('')+'</tr>';
+    }).join('')}
+    </tbody></table></div>
+    <div class="mini" style="margin-top:8px">A branch lagging on an early cycle while peers have closed it is a process problem, not a parent-affordability problem.</div>
+  </div>`:''}`;
+}
+
+/* ---------------- targets ---------------- */
+function tgtRows(){
+  const {A}=current();
+  return [...A.byBranch.values()].map(b=>({name:b.name,loc:b.loc,n:b.n,nA:b.nA,d:b.d,payers:b.payers,
+    paid:b.paid,due:b.due,net:b.net,dNext:b.dNext}))
+    .sort((x,y)=>y.d-x.d||y.due-x.due);
+}
+function tgtOf(name){ const v=S.targets.get(name); return (typeof v==='number'&&isFinite(v))?v:0; }
+function tgtCell(r){
+  const t=tgtOf(r.name);
+  if(!t) return {pctTxt:'—',cls:'',gapTxt:'—'};
+  const pctv=r.d/t*100, gap=r.d-t;
+  return {pctTxt:p1(pctv),cls:pctv>=100?'up':pctv>=75?'gold':'down',
+          gapTxt:(gap>=0?'+':'')+inr(gap)};
+}
+function updateTargets(){
+  const rows=window.__tgt||[];
+  let T=0,C=0;
+  rows.forEach((r,i)=>{
+    const c=tgtCell(r), row=document.getElementById('tgtrow'+i);
+    if(row){ row.querySelector('.tpc').textContent=c.pctTxt;
+             row.querySelector('.tpc').className='n tpc '+c.cls;
+             row.querySelector('.tgap').textContent=c.gapTxt; }
+    T+=tgtOf(r.name); C+=r.d;
+  });
+  const set=(id,txt)=>{ const e=document.getElementById(id); if(e) e.textContent=txt; };
+  set('tgtTotal',inr(T)); set('tgtColl',inr(C));
+  set('tgtPct',T>0?p1(C/T*100):'—'); set('tgtGap',T>0?((C-T>=0?'+':'')+inr(C-T)):'—');
+  const bar=document.getElementById('tgtBar');
+  if(bar){ const v=T>0?Math.min(C/T*100,100):0; bar.style.width=v.toFixed(1)+'%';
+    bar.style.background=(T>0&&C>=T)?'var(--sage)':(T>0&&C/T>=0.75)?'var(--gold)':'var(--coral)'; }
+}
+function setTarget(i,val){
+  const r=(window.__tgt||[])[i]; if(!r) return;
+  const v=parseFloat(String(val).replace(/[, ₹]/g,''));
+  if(isFinite(v)&&v>0) S.targets.set(r.name,v); else S.targets.delete(r.name);
+  updateTargets();
+}
+function applyTargetToAll(){
+  const v=parseFloat(String(document.getElementById('tgtAll').value||'').replace(/[, ₹]/g,''));
+  (window.__tgt||[]).forEach((r,i)=>{
+    if(isFinite(v)&&v>0) S.targets.set(r.name,v); else S.targets.delete(r.name);
+    const el=document.getElementById('tin'+i); if(el) el.value=isFinite(v)&&v>0?v:'';
+  });
+  updateTargets();
+}
+function pasteTargets(){
+  const txt=document.getElementById('tgtPaste').value||'';
+  const names=new Map((window.__tgt||[]).map((r,i)=>[r.name.toLowerCase(),i]));
+  let hit=0,miss=[];
+  txt.split(/\r?\n/).forEach(line=>{
+    if(!line.trim()) return;
+    const parts=line.split(/[,\t;]/); if(parts.length<2) return;
+    const amt=parseFloat(parts[parts.length-1].replace(/[, ₹]/g,''));
+    const nm=parts.slice(0,-1).join(',').trim().toLowerCase();
+    let i=names.get(nm);
+    if(i===undefined) for(const [k,v] of names) if(k.includes(nm)||nm.includes(k)){ i=v; break; }
+    if(i===undefined||!isFinite(amt)){ miss.push(parts[0].trim()); return; }
+    S.targets.set(window.__tgt[i].name,amt);
+    const el=document.getElementById('tin'+i); if(el) el.value=amt;
+    hit++;
+  });
+  document.getElementById('tgtPasteMsg').textContent =
+    hit+' branch'+(hit===1?'':'es')+' set'+(miss.length?' · not matched: '+miss.slice(0,5).join(', '):'');
+  updateTargets();
+}
+function clearTargets(){ S.targets.clear(); render(); }
+
+function viewTargets(){
+  const rows=tgtRows(); window.__tgt=rows;
+  const day=dayShort(focusDay());
+  window.__export_tgt=()=>exportCSV('targets_'+focusDay(),
+    ['Branch','City','Active students','Target for '+focusDay(),'Collected on '+focusDay(),'Achievement %','Gap','Payers','Collected till '+focusDay(),'Outstanding'],
+    rows.map(r=>{const t=tgtOf(r.name);
+      return [r.name,r.loc,r.nA,t||'',r.d,t?(r.d/t*100).toFixed(1):'',t?r.d-t:'',r.payers,r.paid,r.due];}));
+  return `
+  <div class="card" style="margin-bottom:14px">
+    <div class="cardhead"><div><h3>Target versus collection · ${day}</h3>
+      <div class="sub">${S.focus==='settled'?'Measured against the closed day, so the achievement figure is final':'Measured against a day that is still running — the achievement will keep rising'} · ${scopeLabel()}</div></div>
+      <button class="btn" onclick="__export_tgt()">Export CSV</button></div>
+    <div style="display:flex;gap:26px;align-items:center;flex-wrap:wrap;margin:4px 0 12px">
+      <div><div class="eyebrow">Target set</div><div class="num" id="tgtTotal" style="font-size:20px">₹0</div></div>
+      <div><div class="eyebrow">Collected on ${day}</div><div class="num gold" id="tgtColl" style="font-size:20px">₹0</div></div>
+      <div><div class="eyebrow">Achievement</div><div class="num" id="tgtPct" style="font-size:26px;letter-spacing:-.02em">—</div></div>
+      <div><div class="eyebrow">Gap</div><div class="num" id="tgtGap" style="font-size:20px">—</div></div>
+      <div style="flex:1;min-width:200px"><div class="eyebrow" style="margin-bottom:6px">Progress against target</div>
+        <div class="rail"><div class="seg" id="tgtBar" style="width:0%;background:var(--coral)"></div></div></div>
+    </div>
+    <div class="tblbar">
+      <span class="mini">Set every listed branch to</span>
+      <input id="tgtAll" placeholder="e.g. 500000" style="width:120px">
+      <button class="btn" onclick="applyTargetToAll()">Apply to all</button>
+      <button class="btn" onclick="clearTargets()">Clear targets</button>
+      <span class="mini">Use the branch filter above to narrow this list.</span>
+    </div>
+    <div class="tblwrap"><table><thead><tr>
+      <th class="no">Branch</th><th class="no">City</th><th class="n no">Active students</th>
+      <th class="n no">Target for ${day}</th><th class="n no">Collected on ${day}</th>
+      <th class="n no">Achievement</th><th class="n no">Gap</th><th class="n no">Payers</th>
+      <th class="n no">Collected till ${day}</th><th class="n no">Outstanding</th>
+    </tr></thead><tbody>
+    ${rows.map((r,i)=>{ const c=tgtCell(r), t=tgtOf(r.name);
+      return '<tr id="tgtrow'+i+'"><td>'+esc(r.name)+'</td><td style="color:var(--dim)">'+esc(r.loc)+'</td>'+
+      '<td class="n">'+r.nA.toLocaleString('en-IN')+'</td>'+
+      '<td class="n"><input id="tin'+i+'" value="'+(t||'')+'" placeholder="—" oninput="setTarget('+i+',this.value)" '+
+        'style="width:104px;text-align:right;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);padding:2px 6px;border-radius:4px;font-family:var(--mono)"></td>'+
+      '<td class="n gold">'+(r.d?inr(r.d):'—')+'</td>'+
+      '<td class="n tpc '+c.cls+'">'+c.pctTxt+'</td>'+
+      '<td class="n tgap">'+c.gapTxt+'</td>'+
+      '<td class="n">'+(r.payers||'—')+'</td>'+
+      '<td class="n">'+rup(r.paid)+'</td><td class="n">'+rup(r.due)+'</td></tr>';
+    }).join('')}
+    </tbody></table></div>
+  </div>
+  <div class="card">
+    <h3>Paste targets from a sheet</h3>
+    <div class="sub">One branch per line, name and amount separated by a comma or a tab. Partial names match.</div>
+    <textarea id="tgtPaste" rows="5" placeholder="OIS Bannerghatta, 500000&#10;OIS JP Nagar, 350000"
+      style="width:100%;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);padding:8px;border-radius:4px;font-family:var(--mono);font-size:12px"></textarea>
+    <div class="tblbar" style="margin-top:8px"><button class="btn" onclick="pasteTargets()">Apply pasted targets</button>
+      <span class="mini" id="tgtPasteMsg"></span></div>
+    <div class="mini" style="margin-top:10px">Targets live in this browser tab only — reloading the page clears them, so keep the sheet you pasted from.</div>
+  </div>`;
+}
+
+function viewToday(){
+  const {A}=current();
+  const rows=A.pay, tid='pay', sorted=sortRows(rows,tid,{k:'amt',dir:-1}).slice(0,3000);
+  const cleared=rows.filter(r=>r.cleared&&r.amt>0).length;
+  window.__export_pay=()=>exportCSV('payments_'+focusDay(),
+    ['Enrollment code','Student','Branch','City','Grade','Head','Amount on '+focusDay(),'Balance after','Cleared','New record'],
+    rows.map(r=>[r.code,r.name,r.br,r.lo,r.gr,r.kind,r.amt,r.due,r.cleared?'Yes':'No',r.isNew?'Yes':'No']));
+  return `<div class="card">
+    <div class="cardhead"><div><h3>Payment log · ${focusDay()} against ${baseDay()||'—'}</h3>
+      <div class="sub">${dayCaption()} · ${rows.length.toLocaleString('en-IN')} movements · ${cleared.toLocaleString('en-IN')} students went to a zero balance${rows.length>3000?' · showing the largest 3,000, export gives all':''}</div></div>
+      <button class="btn" onclick="__export_pay()">Export CSV</button></div>
+    ${baseDay()?'':'<div class="mini" style="margin-bottom:10px;color:var(--coral)">There is no earlier export to compare against. Keep at least three days of reports in the folder.</div>'}
+    <div class="tblwrap"><table><thead><tr>
+      ${th(tid,'code','Code')}${th(tid,'name','Student')}${th(tid,'br','Branch')}${th(tid,'gr','Grade')}
+      <th class="no">Head</th>${th(tid,'amt','Paid that day','n')}${th(tid,'due','Balance left','n')}<th class="no">Status</th>
+    </tr></thead><tbody>
+    ${sorted.map(r=>'<tr><td class="num" style="color:var(--dim)">'+esc(r.code)+'</td><td>'+esc(r.name)+'</td>'+
+      '<td style="color:var(--muted)">'+esc(r.br)+'</td><td style="color:var(--dim)">'+esc(r.gr)+'</td>'+
+      '<td><span class="pill '+(r.kind==='fees'?'f':'t')+'">'+r.kind+'</span></td>'+
+      '<td class="n '+(r.amt<0?'down':'up')+'">'+inr(r.amt)+'</td>'+
+      '<td class="n">'+(r.due>0?inr(r.due):'—')+'</td>'+
+      '<td>'+(r.amt<0?'<span class="pill bad">reversal</span>':r.cleared?'<span class="pill ok">cleared</span>':r.isNew?'<span class="pill">new record</span>':'<span class="pill">part payment</span>')+'</td></tr>').join('')}
+    </tbody></table></div></div>`;
+}
+
+function viewDefaulters(){
+  const {AF,AT}=current();
+  const D=S.scope==='transport'?S.transport:S.fees, P=S.scope==='transport'?S.priorTr:S.priorFees;
+  const AA=S.scope==='transport'?AT:AF;
+  if(!D||!AA) return '<div class="card"><h3>No data for this scope</h3></div>';
+  const ST=D.STRIDE, rows=[];
+  for(const i of AA.idx){ const b=i*ST, due=D.vals[b+5]; if(due<=0) continue;
+    const brn=D.IB.get(D.br[i]), r1=P?P.get(D.codes[i],brn):null;
+    const moved = r1 ? D.vals[b+3]-r1.paid : 0;
+    rows.push({code:D.codes[i],name:D.names[i],br:brn,lo:D.IL.get(D.lo[i]),gr:D.IG.get(D.gr[i]),
+      sec:D.IS.get(D.se[i]),net:D.vals[b+2],paid:D.vals[b+3],due,pcc:pc(D.vals[b+3],D.vals[b+2]),
+      moved,zero:D.vals[b+3]<=0?1:0,emi:D.fin[i]?'Yes':'No'});
+  }
+  const tid='def', sorted=sortRows(rows,tid,{k:'due',dir:-1}), shown=sorted.slice(0,1000);
+  const zeroTot=rows.filter(r=>r.zero).reduce((s,r)=>s+r.due,0);
+  window.__export_def=()=>exportCSV('outstanding_'+S.scope+'_'+focusDay(),
+    ['Enrollment code','Student','Branch','City','Grade','Section','Net billed','Paid','Outstanding','Paid %','Paid on '+focusDay(),'Never paid','On finance plan'],
+    sorted.map(r=>[r.code,r.name,r.br,r.lo,r.gr,r.sec,r.net,r.paid,r.due,r.pcc.toFixed(1),r.moved,r.zero?'Yes':'No',r.emi]));
+  return `<div class="card">
+    <div class="cardhead"><div><h3>Outstanding ledger · ${S.scope==='transport'?'transport':'fees'}</h3>
+      <div class="sub">${rows.length.toLocaleString('en-IN')} students owe ${rup(rows.reduce((s,r)=>s+r.due,0))} · ${rows.filter(r=>r.zero).length.toLocaleString('en-IN')} have paid nothing (${rup(zeroTot)}) · balances as of the ${dayShort(focusDay())} export · showing the top 1,000</div></div>
+      <button class="btn" onclick="__export_def()">Export call list</button></div>
+    ${S.scope==='both'?'<div class="mini" style="margin-bottom:10px">Combined scope shows the fee ledger here; switch to Transport for the transport ledger.</div>':''}
+    <div class="tblwrap"><table><thead><tr>
+      ${th(tid,'code','Code')}${th(tid,'name','Student')}${th(tid,'br','Branch')}${th(tid,'gr','Grade')}
+      ${th(tid,'net','Net billed','n')}${th(tid,'paid','Paid','n')}${th(tid,'due','Outstanding','n')}
+      ${th(tid,'pcc','Paid %','n')}${th(tid,'moved',dayShort(focusDay()),'n')}<th class="no">Flag</th>
+    </tr></thead><tbody>
+    ${shown.map(r=>'<tr><td class="num" style="color:var(--dim)">'+esc(r.code)+'</td><td>'+esc(r.name)+'</td>'+
+      '<td style="color:var(--muted)">'+esc(r.br)+'</td><td style="color:var(--dim)">'+esc(r.gr)+'</td>'+
+      '<td class="n">'+inr(r.net)+'</td><td class="n">'+inr(r.paid)+'</td><td class="n down">'+inr(r.due)+'</td>'+
+      '<td class="n">'+p1(r.pcc)+'</td><td class="n '+(r.moved>0?'up':'')+'">'+(r.moved?inr(r.moved):'—')+'</td>'+
+      '<td>'+(r.zero?'<span class="pill bad">never paid</span>':r.emi==='Yes'?'<span class="pill">finance plan</span>':'')+'</td></tr>').join('')}
+    </tbody></table></div></div>`;
+}
+
+function segTable(title,sub,map,limit){
+  const rows=[...map.values()].sort((a,b)=>b.net-a.net).slice(0,limit||40);
+  return `<div class="card"><h3>${title}</h3><div class="sub">${sub}</div>
+  <div class="tblwrap" style="max-height:420px"><table><thead><tr>
+    <th class="no">Segment</th><th class="n no">Active students</th><th class="n no">Net</th><th class="n no">Collected</th>
+    <th class="n no">Due</th><th class="n no">Coll %</th><th class="n no">${dayShort(focusDay())}</th><th class="n no">Never paid</th>
+  </tr></thead><tbody>
+  ${rows.map(r=>'<tr><td>'+esc(r.name)+'</td><td class="n">'+r.nA.toLocaleString('en-IN')+'</td>'+
+    '<td class="n">'+rup(r.net)+'</td><td class="n">'+rup(r.paid)+'</td><td class="n">'+rup(r.due)+'</td>'+
+    '<td class="n '+(pc(r.paid,r.net)>=75?'up':pc(r.paid,r.net)<50?'down':'gold')+'">'+p1(pc(r.paid,r.net))+'</td>'+
+    '<td class="n">'+(r.d?inr(r.d):'—')+'</td><td class="n">'+r.zero.toLocaleString('en-IN')+'</td></tr>').join('')}
+  </tbody></table></div></div>`;
+}
+function viewSegments(){
+  const {A}=current();
+  const go=r=>{ const m=String(r.name).match(/\d+/); return m?+m[0]:99; };
+  const grades=new Map([...A.byGrade.entries()].sort((a,b)=>go(a[1])-go(b[1])));
+  const emi=[A.emi,A.noemi].filter(x=>x&&x.n);
+  return `
+  <div class="two" style="margin-bottom:14px">
+    ${segTable('Grade-wise position','Where the fee is billed and how much has landed',grades,50)}
+    ${segTable('Student type','New admissions vs regulars vs RTE and staff wards',A.byType,20)}
+  </div>
+  <div class="two" style="margin-bottom:14px">
+    <div class="card"><h3>Payment behaviour</h3><div class="sub">Every student sorted into one of three states</div>
+      ${[['Fully paid',A.full,'var(--sage)'],['Part paid',A.partial,'var(--gold)'],['Never paid',A.zero,'var(--coral)']]
+        .map(([l,v,c])=>'<div class="barrow"><div class="nm">'+l+'</div><div class="bartrack"><div style="width:'+pc(v,A.n||1).toFixed(2)+'%;background:'+c+'"></div></div><div class="val">'+v.toLocaleString('en-IN')+'</div></div>').join('')}
+      <div class="mini" style="margin-top:10px">Part-paid students are the cheapest to convert — they have already shown intent and a working payment channel.</div>
+      <div style="margin-top:14px" class="eyebrow">Finance plan comparison</div>
+      <div class="tblwrap" style="max-height:none;margin-top:8px"><table><thead><tr><th class="no">Cohort</th><th class="n no">Students</th><th class="n no">Coll %</th><th class="n no">Due</th></tr></thead><tbody>
+      ${emi.map(r=>'<tr><td>'+esc(r.name)+'</td><td class="n">'+r.nA.toLocaleString('en-IN')+'</td><td class="n">'+p1(pc(r.paid,r.net))+'</td><td class="n">'+rup(r.due)+'</td></tr>').join('')}
+      </tbody></table></div>
+    </div>
+    ${A.byPlan&&A.byPlan.size?segTable('Fee / transport plan','Top plans by billing — useful for slab decisions',A.byPlan,25):
+      '<div class="card"><h3>Plan mix</h3><div class="sub">Plan names only exist in the transport report</div><div class="mini">Switch scope to Transport to see slab-wise performance.</div></div>'}
+  </div>
+  <div class="card"><h3>City scorecard</h3><div class="sub">Roll-up of every branch in the city</div>
+  <div class="tblwrap" style="max-height:none"><table><thead><tr><th class="no">City</th><th class="n no">Students</th><th class="n no">Net</th><th class="n no">Collected</th><th class="n no">Due</th><th class="n no">Coll %</th><th class="n no">${dayShort(focusDay())}</th><th class="n no">Payers</th><th class="n no">Never paid</th></tr></thead><tbody>
+  ${[...A.byLoc.values()].sort((a,b)=>b.due-a.due).map(r=>'<tr><td>'+esc(r.name)+'</td><td class="n">'+r.nA.toLocaleString('en-IN')+'</td>'+
+    '<td class="n">'+rup(r.net)+'</td><td class="n">'+rup(r.paid)+'</td><td class="n">'+rup(r.due)+'</td>'+
+    '<td class="n '+(pc(r.paid,r.net)>=75?'up':pc(r.paid,r.net)<50?'down':'gold')+'">'+p1(pc(r.paid,r.net))+'</td>'+
+    '<td class="n">'+(r.d?inr(r.d):'—')+'</td><td class="n">'+(r.payers||'—')+'</td><td class="n">'+r.zero.toLocaleString('en-IN')+'</td></tr>').join('')}
+  </tbody></table></div></div>`;
+}
+
+function viewHealth(){
+  const F=S.fees,T=S.transport;
+  const newRecs=(D,P)=>{ if(!D||!P) return 0; let c=0; for(let i=0;i<D.N;i++) if(!P.has(D.codes[i],D.IB.get(D.br[i]))) c++; return c; };
+  const dropped=(D,P)=>{ if(!D||!P) return 0; const live=new Set(); for(let i=0;i<D.N;i++) live.add(D.codes[i]+'|'+D.IB.get(D.br[i]));
+    let c=0; for(const k of P.keys()) if(!live.has(k)) c++; return c; };
+  const stCount=(D,v)=>{ if(!D) return 0; let c=0; for(let i=0;i<D.N;i++) if((D.st[i]&3)===v) c++; return c; };
+  const missBranch=D=>{ if(!D) return 0; let c=0; for(let i=0;i<D.N;i++) if(D.IB.get(D.br[i])===BLANK) c++; return c; };
+  const notInFees=()=>{ if(!T||!F) return 0; let c=0; for(let i=0;i<T.N;i++) if(!F.index.has(T.codes[i])) c++; return c; };
+  const {AF,AT}=current();
+  const chk=(l,v,n,bad)=>'<tr><td>'+l+'</td><td class="n '+(bad?'down':'')+'">'+v+'</td><td style="color:var(--dim);white-space:normal">'+n+'</td></tr>';
+  const P=S.pair||{fees:{},transport:{}};
+  return `
+  <div class="card" style="margin-bottom:14px">
+    <h3>Files found in the folder</h3><div class="sub">Type comes from the column headers, so renaming files is safe. Duplicates of the same type and date are ignored — the largest copy wins. The three most recent dates per type are loaded.</div>
+    <div class="tblwrap" style="max-height:320px"><table><thead><tr><th class="no">File</th><th class="no">Detected as</th><th class="no">Evidence</th><th class="no">Report date</th><th class="n no">Size</th><th class="no">Role</th></tr></thead><tbody>
+    ${S.files.map(m=>'<tr><td class="num" style="font-size:11px">'+esc(m.name)+'</td>'+
+      '<td>'+(m.type?'<span class="pill '+(m.type==='fees'?'f':'t')+'">'+m.type+'</span>':'<span class="pill bad">unrecognised</span>')+'</td>'+
+      '<td style="color:var(--dim);font-size:11px">'+(m.detail?('fee markers '+m.detail.fee+' · transport markers '+m.detail.transport+(m.byName?' · decided on the file name':'')):'—')+'</td>'+
+      '<td class="num">'+m.date+'</td><td class="n">'+(m.size/1048576).toFixed(1)+' MB</td>'+
+      '<td>'+(m.slot?'<span class="pill ok">'+m.slot+'</span>':'<span class="pill">skipped</span>')+'</td></tr>').join('')}
+    </tbody></table></div>
+    <div class="tblwrap" style="max-height:none;margin-top:12px"><table><thead><tr><th class="no">Snapshot pairing</th><th class="n no">Students in both</th><th class="n no">Net billing gap</th><th class="no">Cycles match</th><th class="no">Verdict</th></tr></thead><tbody>
+    ${(S.valid||[]).map(v=>'<tr><td>'+esc(v.label)+'</td><td class="n">'+(v.overlap*100).toFixed(1)+'%</td>'+
+      '<td class="n '+(v.drift>0.1?'down':'')+'">'+(v.drift*100).toFixed(1)+'%</td>'+
+      '<td>'+(v.cyc?'yes':'<span class="pill bad">no</span>')+'</td>'+
+      '<td>'+(v.ok?'<span class="pill ok">paired</span>':'<span class="pill bad">rejected</span>')+'</td></tr>').join('')||'<tr><td colspan="5" class="mini">Nothing to pair — only one export is loaded.</td></tr>'}
+    </tbody></table></div>
+    <div class="mini" style="margin-top:8px">Two exports are only paired when three quarters of students appear in both, total net billing is within 10%, and both files carry the same fee cycles. Anything else is rejected rather than quietly subtracted.</div>
+    <div class="mini" style="margin-top:8px">Fee reports available: ${(P.fees.all||[]).join(', ')||'none'} · Transport reports available: ${(P.transport.all||[]).join(', ')||'none'}</div>
+  </div>
+  <div class="two">
+    <div class="card"><h3>Record reconciliation</h3><div class="sub">Checks worth running before the numbers go into a report</div>
+      <div class="tblwrap" style="max-height:none"><table><tbody>
+      ${F?chk('Fee records in the latest file',F.N.toLocaleString('en-IN'),'Rows in the '+S.dates.d0+' fee report'):''}
+      ${T?chk('Transport records in the latest file',T.N.toLocaleString('en-IN'),'Rows in the '+S.dates.d0+' transport report'):''}
+      ${settledOK()?'':chk('Settled day available','No','Only two dates are in the folder, so the closed-day view cannot be built. Keep three consecutive exports and the dashboard will default to the last finished day.',true)}
+      ${F&&S.priorFees?chk('New fee records since the previous export',newRecs(F,S.priorFees).toLocaleString('en-IN'),'Codes present now but absent then — admissions, re-activations or a branch transfer'):''}
+      ${F&&S.priorFees?chk('Fee records that disappeared',dropped(F,S.priorFees).toLocaleString('en-IN'),'Present then, missing now — usually withdrawals, but verify if the count is large',dropped(F,S.priorFees)>50):''}
+      ${F?chk('Duplicate enrolment codes (fees)',F.dupes.toLocaleString('en-IN'),'The same code on more than one row. Day comparison matches on code plus branch, so genuine transfers are handled, but check these rows',F.dupes>0):''}
+      ${T?chk('Duplicate enrolment codes (transport)',T.dupes.toLocaleString('en-IN'),'Same treatment as above',T.dupes>0):''}
+      ${F?chk('Fee roll: permanent-active students',stCount(F,1).toLocaleString('en-IN'),'Every student-strength figure in the dashboard counts only these. Inactive on permanent status: '+stCount(F,2).toLocaleString('en-IN')+', status blank: '+stCount(F,0).toLocaleString('en-IN')):''}
+      ${T?chk('Transport roll: permanent-active riders',stCount(T,1).toLocaleString('en-IN'),'Counted as a subset of the fee roll in combined scope, never added on top of it'):''}
+      ${chk('Rows with no branch name',missBranch(F)+missBranch(T),'These fall into the “'+BLANK+'” bucket and still count in totals',(missBranch(F)+missBranch(T))>0)}
+      ${T&&F?chk('Transport students not in the fee file',notInFees().toLocaleString('en-IN'),'City and grade cannot be filled in for these',notInFees()>0):''}
+      ${AF?chk('Backward movements (fees)',AF.revCount.toLocaleString('en-IN'),'Paid amount fell on '+focusDay()+' — refunds, reversals or corrections totalling '+inr(Math.abs(AF.revAmt)),AF.revCount>0):''}
+      ${AT?chk('Backward movements (transport)',AT.revCount.toLocaleString('en-IN'),'Same check on the transport ledger',AT.revCount>0):''}
+      </tbody></table></div>
+    </div>
+    <div class="card"><h3>How each number is built</h3><div class="sub">So the figures can be defended in a review</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7">
+        <p style="margin:0 0 10px"><b style="color:var(--ink)">Collection on a day</b> — the paid amount in that day's export minus the paid amount in the previous day's export, matched student by student on enrolment code plus branch. Nothing is pro-rated or estimated.</p>
+        <p style="margin:0 0 10px"><b style="color:var(--ink)">Collected till a day</b> — read straight from that day's own export, not from the newer file. On the settled view every balance, cycle percentage and outstanding figure is the position at the close of that day.</p>
+        <p style="margin:0 0 10px"><b style="color:var(--ink)">Settled day</b> — the default. A day's collection is the difference between the export taken after it closed and the export taken the morning before, so the figure never changes afterwards. Today's file is still being written to and is shown separately as provisional.</p>
+        <p style="margin:0 0 10px"><b style="color:var(--ink)">Net billed</b> — every instalment's Net column added up: instalments 1–4, one-time and hostel for fees; instalments 1–4 for transport. Net is after concession, so it is the recoverable amount.</p>
+        <p style="margin:0 0 10px"><b style="color:var(--ink)">Collected</b> — the Paid column for fees, Collected for transport. It includes late fee received, which is why paid can slightly exceed net.</p>
+        <p style="margin:0 0 10px"><b style="color:var(--ink)">Outstanding</b> — the report's own Due column, not net minus paid. The two differ where a fine is levied, and the school's definition is used.</p>
+        <p style="margin:0"><b style="color:var(--ink)">Student strength</b> — always the count of students whose permanent status is Active. Inactive records still carry their balances into the money columns when the status filter is set to show them, but they never inflate a headcount, an average per student, or a percentage of students.</p>
+        <p style="margin:0"><b style="color:var(--ink)">Never paid</b> — a student with net billing above zero and nothing received across every head.</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------------- export ---------------- */
+function exportCSV(name,head,rows){
+  const q=v=>{ const s=String(v==null?'':v); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  const csv=[head.map(q).join(',')].concat(rows.map(r=>r.map(q).join(','))).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download=name+'.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+function scopeLabel(){ return S.scope==='fees'?'School fees':S.scope==='transport'?'Transport fees':'Fees + transport'; }
+
+/* ---------------- multi select ---------------- */
+function multi(elId,set,opts,allLabel,onChange){
+  const el=$(elId); if(!el) return;
+  const label=()=> set.size===0?allLabel : set.size===1?[...set][0] : set.size+' selected';
+  el.innerHTML='<button class="msbtn'+(set.size?' act':'')+'">'+esc(label())+'</button>'+
+    '<div class="mspanel hide"><input placeholder="Search…"><div class="msopts"></div>'+
+    '<div class="msfoot"><button data-a="all">Select all</button><button data-a="none">Clear</button><span class="cnt">'+opts.length+' options</span></div></div>';
+  const btn=el.querySelector('.msbtn'), panel=el.querySelector('.mspanel'),
+        search=el.querySelector('input'), list=el.querySelector('.msopts');
+  const draw=()=>{ const q=search.value.trim().toLowerCase();
+    const vis=opts.filter(o=>!q||o.toLowerCase().includes(q));
+    list.innerHTML=vis.slice(0,400).map(o=>'<label class="msopt"><input type="checkbox" value="'+esc(o)+'"'+(set.has(o)?' checked':'')+'>'+esc(o)+'</label>').join('')
+      ||'<div class="mini" style="padding:6px">Nothing matches that search.</div>'; };
+  draw();
+  btn.onclick=e=>{ e.stopPropagation(); const open=!panel.classList.contains('hide');
+    $$('.mspanel').forEach(p=>p.classList.add('hide')); if(!open){panel.classList.remove('hide'); search.focus();} };
+  panel.onclick=e=>e.stopPropagation();
+  search.oninput=draw;
+  list.onchange=e=>{ const v=e.target.value; if(e.target.checked) set.add(v); else set.delete(v);
+    btn.textContent=label(); btn.classList.toggle('act',!!set.size); onChange(); };
+  el.querySelectorAll('.msfoot button').forEach(b=>b.onclick=()=>{
+    const q=search.value.trim().toLowerCase(), vis=opts.filter(o=>!q||o.toLowerCase().includes(q));
+    if(b.dataset.a==='all') vis.forEach(v=>set.add(v)); else vis.forEach(v=>set.delete(v));
+    draw(); btn.textContent=label(); btn.classList.toggle('act',!!set.size); onChange(); });
+}
+document.addEventListener('click',()=>$$('.mspanel').forEach(p=>p.classList.add('hide')));
+
+function optionLists(){
+  const locs=new Set(), grs=new Set(), tys=new Set(), brs=new Set();
+  const src=S.scope==='transport'&&S.transport?[S.transport]:S.scope==='fees'&&S.fees?[S.fees]:[S.fees,S.transport];
+  [S.fees,S.transport].forEach(X=>{ if(!X) return;
+    X.IL.list.forEach(v=>locs.add(v)); X.IG.list.forEach(v=>grs.add(v)); X.IT.list.forEach(v=>v!==BLANK&&tys.add(v)); });
+  src.forEach(X=>X&&X.IB.list.forEach(v=>brs.add(v)));
+  let brList=[...brs].sort();
+  if(S.filt.loc.size){
+    const inCity=new Set();
+    [S.fees,S.transport].forEach(X=>{ if(!X) return;
+      const ids=new Set(); S.filt.loc.forEach(n=>{const i=X.IL.list.indexOf(n); if(i>=0) ids.add(i);});
+      for(let i=0;i<X.N;i++) if(ids.has(X.lo[i])) inCity.add(X.IB.get(X.br[i])); });
+    brList=brList.filter(b=>inCity.has(b));
+    [...S.filt.br].forEach(b=>{ if(!inCity.has(b)) S.filt.br.delete(b); });
+  }
+  const gnum=x=>{const m=String(x).match(/\d+/);return m?+m[0]:999;};
+  return {locs:[...locs].sort(),brs:brList,grs:[...grs].sort((a,b)=>gnum(a)-gnum(b)||String(a).localeCompare(b)),tys:[...tys].sort()};
+}
+function refreshFilters(){
+  const o=optionLists();
+  const again=()=>{ CACHE.key=null; refreshFilters(); render(); };
+  multi('#msLoc',S.filt.loc,o.locs,'All cities',again);
+  multi('#msBr',S.filt.br,o.brs,'All branches',()=>{CACHE.key=null;render();});
+  multi('#msGr',S.filt.gr,o.grs,'All grades',()=>{CACHE.key=null;render();});
+  multi('#msTy',S.filt.ty,o.tys,'All types',()=>{CACHE.key=null;render();});
+  $('#fSt').value=S.filt.st; $('#fQ').value=S.filt.q;
+}
+function renderFocus(){
+  const on=s=>S.focus===s?' class="on"':'';
+  $('#focus').innerHTML=
+    '<button data-f="settled"'+on('settled')+(settledOK()?'':' disabled title="Needs three consecutive exports in the folder" style="opacity:.4;cursor:not-allowed"')+'>Settled '+(settledOK()?dayShort(S.dates.d1):'day')+'</button>'+
+    '<button data-f="live"'+on('live')+'>Live '+dayShort(S.dates.d0)+'</button>';
+  $$('#focus button').forEach(b=>b.onclick=()=>{
+    if(b.dataset.f==='settled'&&!settledOK()) return;
+    S.focus=b.dataset.f; applyFocus(); renderFocus(); render(); });
+}
+function render(){
+  const {A}=current();
+  $('#fCount').innerHTML='Showing <b>'+A.nA.toLocaleString('en-IN')+'</b> active students'+
+    (A.n!==A.nA?' <span style="color:var(--dim)">(+'+(A.n-A.nA).toLocaleString('en-IN')+' inactive in view)</span>':'');
+  const v={overview:viewOverview,branches:viewBranches,compare:viewCompare,targets:viewTargets,today:viewToday,
+           defaulters:viewDefaulters,segments:viewSegments,health:viewHealth}[S.tab];
+  $('#views').innerHTML=bannerHTML()+v();
+  const pe=$('#paceEnd'); if(pe) pe.onchange=e=>{ S.paceEnd=e.target.value; render(); };
+  if(S.tab==='targets') updateTargets();
+  if(S.tab==='compare'){
+    multi('#msCmp',S.cmp,optionLists().brs,'Pick branches',()=>render());
+  }
+  window.scrollTo({top:0});
+}
+function runValidation(){
+  const D=dayShort;
+  const checks=[
+    ['FM1',validatePair(S.F0,S.FM1,'Fee: '+D(S.dates.d0)+' export against '+D(S.dates.d1))],
+    ['FM2',validatePair(S.F1,S.FM2,'Fee: '+D(S.dates.d1)+' export against '+D(S.dates.d2))],
+    ['TM1',validatePair(S.T0,S.TM1,'Transport: '+D(S.dates.d0)+' export against '+D(S.dates.d1))],
+    ['TM2',validatePair(S.T1,S.TM2,'Transport: '+D(S.dates.d1)+' export against '+D(S.dates.d2))]
+  ];
+  S.rejected=[];
+  checks.forEach(([slot,v])=>{ if(v&&!v.ok){ S.rejected.push(v); S[slot]=null; } });
+  S.valid=checks.map(c=>c[1]).filter(Boolean);
+  // a settled day needs the d1 export itself plus a d2 export that pairs with it
+  S.okSettled = !!((S.F1&&S.FM2)||(S.T1&&S.TM2));
+  S.colWarn=[];
+  [[S.F0,'fee'],[S.T0,'transport']].forEach(([D,n])=>{
+    if(!D) return;
+    if(!D.moneyCol) S.colWarn.push('The '+n+' export has no Paid or Collected column that could be matched, so every collection figure for it would read zero.');
+    else { let paid=0,net=0; for(let i=0;i<D.N;i++){paid+=D.vals[i*D.STRIDE+3];net+=D.vals[i*D.STRIDE+2];}
+      if(net>0&&paid===0) S.colWarn.push('The '+n+' export shows '+rup(net)+' billed and nothing collected at all, which almost always means the money column is named differently in this file.'); }
+    if(!D.dueCol) S.colWarn.push('The '+n+' export has no Due column; outstanding is being read as zero.');
+  });
+}
+function bannerHTML(){
+  const cw=(S.colWarn||[]).map(t=>'<div class="ins"><span class="tag crit">columns</span><div>'+esc(t)+'</div></div>').join('');
+  if(!(S.rejected&&S.rejected.length)) return cw?'<div class="card" style="border-color:#5c2b26;background:#1c1315;margin-bottom:14px">'+
+      '<h3 style="color:#F5A79C">A column in one of the exports could not be matched</h3>'+cw+'</div>':'';
+  return '<div class="card" style="border-color:#5c2b26;background:#1c1315;margin-bottom:14px">'+
+    '<h3 style="color:#F5A79C">Two exports could not be paired, so those day figures are switched off</h3>'+
+    '<div class="sub">A day\'s collection is only meaningful between two copies of the same report. These pairs did not match:</div>'+
+    S.rejected.map(v=>'<div class="ins"><span class="tag crit">rejected</span><div>'+esc(v.label)+
+      ' — <b>'+(v.overlap*100).toFixed(0)+'%</b> of students found in both, net billing differs by <b>'+
+      (v.drift*100).toFixed(1)+'%</b>'+(v.cyc?'':', and the fee cycles in the two files are not the same')+
+      '. Usually this means one of the files in the folder is the other kind of report, or an export from a different academic year.</div></div>').join('')+cw+
+    '<div class="mini" style="margin-top:8px">Open Data health to see exactly which file went into which slot.</div></div>';
+}
+function boot(){
+  joinTransportToFees();
+  runValidation();
+  S.focus = settledOK() ? 'settled' : 'live';
+  applyFocus();
+  const P=S.pair||{fees:{},transport:{}};
+  const chips=[];
+  if(settledOK()) chips.push('<span class="chip">Settled day <b>'+S.dates.d1+'</b></span>');
+  chips.push('<span class="chip">Live file <b>'+(S.dates.d0||'—')+'</b></span>');
+  if(!settledOK()) chips.push('<span class="chip warn">Keep the '+dayShort(S.dates.d1)+' and '+dayShort(S.dates.d0)+' exports and add tomorrow\'s to close a settled day</span>');
+  if(S.fees&&P.fees.d0!==S.dates.d0) chips.push('<span class="chip warn">Fee report is from '+P.fees.d0+'</span>');
+  if(S.transport&&P.transport.d0!==S.dates.d0) chips.push('<span class="chip warn">Transport report is from '+P.transport.d0+'</span>');
+  chips.push('<span class="chip">'+(S.fees?S.fees.N.toLocaleString('en-IN'):0)+' fee · '+(S.transport?S.transport.N.toLocaleString('en-IN'):0)+' transport records</span>');
+  $('#dateChips').innerHTML=chips.join('');
+  $('#brandSub').textContent='Orchids · '+(S.fees?S.fees.IB.list.filter(v=>v!==BLANK).length:0)+' branches';
+  if(!S.fees&&S.transport) S.scope='transport';
+  $$('#scope button').forEach(b=>{ b.classList.toggle('on',b.dataset.s===S.scope);
+    b.onclick=()=>{ S.scope=b.dataset.s; S.cmp=new Set(); $$('#scope button').forEach(x=>x.classList.toggle('on',x===b));
+      CACHE.key=null; refreshFilters(); render(); }; });
+  $$('#tabs button').forEach(b=>b.onclick=()=>{ S.tab=b.dataset.t; $$('#tabs button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
+  $('#fSt').addEventListener('change',e=>{ S.filt.st=e.target.value; CACHE.key=null; render(); });
+  let t; $('#fQ').addEventListener('input',e=>{ clearTimeout(t); const v=e.target.value; t=setTimeout(()=>{S.filt.q=v;CACHE.key=null;render();},260); });
+  $('#fReset').onclick=()=>{ S.filt=emptyFilt(); CACHE.key=null; refreshFilters(); render(); };
+  renderFocus(); refreshFilters(); render();
+  $('#loader').classList.add('hide'); $('#app').classList.remove('hide');
+}
+</script>
+</body>
+</html>
