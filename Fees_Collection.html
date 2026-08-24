@@ -211,7 +211,6 @@ td.best{color:var(--sage)} td.worst{color:var(--coral)}
       <button data-s="transport">Transport</button>
       <button data-s="both">Combined</button>
     </div>
-    <button class="btn" id="publish">Publish</button>
     <button class="btn" id="reload">Load another folder</button>
   </div>
   <div class="filters" id="filters">
@@ -233,6 +232,7 @@ td.best{color:var(--sage)} td.worst{color:var(--coral)}
     <button data-t="targets">Targets</button>
     <button data-t="today">Payment log</button>
     <button data-t="defaulters">Outstanding</button>
+    <button data-t="zeropaid">Zero paid</button>
     <button data-t="segments">Segments</button>
     <button data-t="health">Data health</button>
   </nav>
@@ -495,52 +495,6 @@ function mapFromDataset(D){
     has(code,branch){ return byKey.has(code+'|'+branch) || byCode.has(code); },
     keys(){ return byKey.keys(); }};
 }
-/* ---- IndexedDB Persistence for Published Dashboard ---- */
-const DB_NAME = 'FeeWarRoomDB';
-const DB_STORE = 'published_files';
-
-function initDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(DB_STORE)) {
-        db.createObjectStore(DB_STORE, { keyPath: 'id' });
-      }
-    };
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror = e => reject(e.target.error);
-  });
-}
-
-async function savePublishedFiles(fileItems) {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE, 'readwrite');
-    const store = tx.objectStore(DB_STORE);
-    store.clear();
-    store.put({ id: 'latest_publish', publishedAt: new Date().toISOString(), files: fileItems });
-    tx.oncomplete = () => resolve();
-    tx.onerror = e => reject(e.target.error);
-  });
-}
-
-async function getPublishedFiles() {
-  try {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(DB_STORE, 'readonly');
-      const store = tx.objectStore(DB_STORE);
-      const req = store.get('latest_publish');
-      req.onsuccess = e => resolve(e.target.result || null);
-      req.onerror = e => reject(e.target.error);
-    });
-  } catch (e) {
-    console.error('Failed to access IndexedDB', e);
-    return null;
-  }
-}
-
 /* ============================= CORE END ============================= */
 </script>
 <script>
@@ -548,7 +502,8 @@ async function getPublishedFiles() {
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const S={ F0:null,F1:null,FM0:null,FM1:null,FM2:null, T0:null,T1:null,TM0:null,TM1:null,TM2:null,
           fees:null, transport:null, priorFees:null, priorTr:null, nextFees:null, nextTr:null,
-          files:[], rawFiles:[], isPublished:false, publishedAt:null, scope:'fees', tab:'overview', focus:'settled', cmp:new Set(), targets:new Map(), tgtBr:new Set(),
+          files:[], scope:'fees', tab:'overview', focus:'settled', cmp:new Set(), targets:new Map(), tgtBr:new Set(),
+          zp:{newT:10000,oldT:20000,modeNew:'lt',modeOld:'lt',exRTE:true,exStaff:true},
           filt:{loc:new Set(),br:new Set(),gr:new Set(),ty:new Set(),st:'A',q:''}, sort:{} };
 const emptyFilt=()=>({loc:new Set(),br:new Set(),gr:new Set(),ty:new Set(),st:'A',q:''});
 
@@ -604,12 +559,8 @@ $('#reload').onclick=()=>{ $('#loader').classList.remove('hide'); $('#app').clas
 
 const yieldUI=()=>new Promise(r=>setTimeout(r,0));
 
-async function ingest(fileList, opts={}){
+async function ingest(fileList){
   if(!fileList||!fileList.length){ setStatus('No CSV files found.',1); return; }
-  S.rawFiles = fileList;
-  S.isPublished = !!opts.fromPublished;
-  if(opts.fromPublished && opts.publishedAt) S.publishedAt = opts.publishedAt;
-  else if(!opts.fromPublished) { S.isPublished = false; S.publishedAt = null; }
   setStatus('Reading '+fileList.length+' file'+(fileList.length>1?'s':'')+'…'); setProg(0.02);
   const meta=[];
   for(let i=0;i<fileList.length;i++){
@@ -1326,6 +1277,155 @@ function viewTargets(){
   </div>`;
 }
 
+/* ---------------- zero paid ----------------
+   "Zero paid" is a collections definition, not a literal zero: a new admission who has put in
+   less than the first-instalment-sized amount, or a continuing student below the larger figure,
+   is treated as not having started paying. RTE and staff wards are outside the rule. ---- */
+function zpClass(typeName){
+  const t=String(typeName||'').toLowerCase();
+  if(/rte|ews/.test(t)) return 'rte';
+  if(/staff/.test(t)) return 'staff';
+  if(/new/.test(t)) return 'new';
+  return 'existing';
+}
+function zpSet(k,v){
+  if(k==='modeNew'||k==='modeOld'||k==='exRTE'||k==='exStaff') S.zp[k]=v;
+  else { const n=parseFloat(String(v).replace(/[, ₹]/g,'')); S.zp[k]=isFinite(n)&&n>=0?n:0; }
+  render();
+}
+function zeroPaidData(){
+  /* Always read the newest export. A calling list has to reflect money already banked, so this
+     view deliberately ignores the settled/live toggle that governs day movement. */
+  const D=S.F0||S.fees; if(!D) return null;
+  const z=S.zp, ST=D.STRIDE;
+  const under=(paid,thr,mode)=> mode==='le' ? paid<=thr : paid<thr;
+  const rows=[], byBranch=new Map();
+  let blank=0, skipped=0;
+  const combo={ltlt:0,lelt:0,ltle:0,lele:0};   // the four tie readings, for reconciling with a branch's own count
+  for(const i of filterIdx(D,S.filt)){
+    if((D.st[i]&3)!==1) continue;                       // current students only
+    const cls=zpClass(D.IT.get(D.ty[i]));
+    if((cls==='rte'&&z.exRTE)||(cls==='staff'&&z.exStaff)){ skipped++; continue; }
+    const b=i*ST, paid=D.vals[b+3], due=D.vals[b+5], net=D.vals[b+2];
+    const isNew=cls==='new', thr=isNew?z.newT:z.oldT, mode=isNew?z.modeNew:z.modeOld;
+    const strict=paid<thr, tie=paid===thr;
+    if(strict){ combo.ltlt++; combo.lelt++; combo.ltle++; combo.lele++; }
+    else if(tie){ if(isNew){ combo.lelt++; combo.lele++; } else { combo.ltle++; combo.lele++; } }
+    const brn=D.IB.get(D.br[i]);
+    let o=byBranch.get(brn);
+    if(!o){ o={name:brn,loc:D.IL.get(D.lo[i]),pool:0,n:0,nNew:0,nOld:0,due:0}; byBranch.set(brn,o); }
+    o.pool++;
+    if(D.IT.get(D.ty[i])===BLANK) blank++;
+    if(under(paid,thr,mode)){
+      o.n++; o.due+=due; if(isNew) o.nNew++; else o.nOld++;
+      rows.push({code:D.codes[i],name:D.names[i],br:brn,lo:D.IL.get(D.lo[i]),gr:D.IG.get(D.gr[i]),
+        sec:D.IS.get(D.se[i]),type:D.IT.get(D.ty[i]),group:isNew?'New admission':'Existing',
+        thr,net,paid,due,tie});
+    }
+  }
+  const tot={n:rows.length,due:rows.reduce((s,r)=>s+r.due,0),
+    nNew:rows.filter(r=>r.group==='New admission').length,
+    pool:[...byBranch.values()].reduce((s,o)=>s+o.pool,0),
+    ties:rows.filter(r=>r.tie).length, combo, blank, skipped, day:S.dates.d0};
+  return {rows,byBranch,tot};
+}
+function viewZeroPaid(){
+  const Z=zeroPaidData();
+  if(!Z) return '<div class="card"><h3>The fee export is needed for this view</h3><div class="mini">Zero paid is judged on school fees, not transport.</div></div>';
+  const z=S.zp, {rows,byBranch,tot}=Z;
+  const brRows=[...byBranch.values()].map(o=>({...o,pcv:pc(o.n,o.pool)})).filter(o=>o.n>0);
+  const wholesale=brRows.filter(o=>o.pool>=50&&o.n===o.pool);
+  const tid='zp', sorted=sortRows(rows,tid,{k:'due',dir:-1}), shown=sorted.slice(0,1000);
+  const btid='zpb', bsorted=sortRows(brRows,btid,{k:'n',dir:-1});
+  window.__export_zp=()=>exportCSV('zero_paid_'+Z.tot.day,
+    ['Enrollment code','Student','Branch','City','Grade','Section','Student type','Group','Threshold','Net billed','Paid till '+Z.tot.day,'Outstanding','At threshold exactly'],
+    sorted.map(r=>[r.code,r.name,r.br,r.lo,r.gr,r.sec,r.type,r.group,r.thr,r.net,r.paid,r.due,r.tie?'Yes':'No']));
+  window.__export_zpb=()=>exportCSV('zero_paid_by_branch_'+Z.tot.day,
+    ['Branch','City','Students in scope','Zero paid','Share %','New admissions','Existing','Outstanding held'],
+    bsorted.map(r=>[r.name,r.loc,r.pool,r.n,r.pcv.toFixed(1),r.nNew,r.nOld,r.due]));
+  const num=(id,val)=>'<input id="'+id+'" value="'+val+'" onchange="zpSet(\''+id.replace("zp_","")+'\',this.value)" style="width:96px;text-align:right;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);padding:3px 7px;border-radius:4px;font-family:var(--mono)">';
+  return `
+  <div class="card" style="margin-bottom:14px">
+    <div class="cardhead"><div><h3>Zero paid · position on ${dayShort(Z.tot.day)}</h3>
+      <div class="sub">A new admission below ${inr(z.newT)} or a continuing student below ${inr(z.oldT)} counts as not having started paying. School fees only, current students only, always read from the newest export in the folder.</div></div>
+      <button class="btn" onclick="__export_zp()">Export student list</button></div>
+    <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
+      <div class="fld"><label>New admission below</label>${num('zp_newT',z.newT)}</div>
+      <div class="fld"><label>Existing student below</label>${num('zp_oldT',z.oldT)}</div>
+      <div class="fld"><label>New admission paying exactly ${inr(z.newT)}</label>
+        <select onchange="zpSet('modeNew',this.value)">
+          <option value="lt"${z.modeNew==='lt'?' selected':''}>Not counted</option>
+          <option value="le"${z.modeNew==='le'?' selected':''}>Counted</option>
+        </select></div>
+      <div class="fld"><label>Existing paying exactly ${inr(z.oldT)}</label>
+        <select onchange="zpSet('modeOld',this.value)">
+          <option value="lt"${z.modeOld==='lt'?' selected':''}>Not counted</option>
+          <option value="le"${z.modeOld==='le'?' selected':''}>Counted</option>
+        </select></div>
+      <label class="mini" style="display:flex;gap:6px;align-items:center;padding-bottom:5px">
+        <input type="checkbox" ${z.exRTE?'checked':''} onchange="zpSet('exRTE',this.checked)"> Exclude RTE and EWS</label>
+      <label class="mini" style="display:flex;gap:6px;align-items:center;padding-bottom:5px">
+        <input type="checkbox" ${z.exStaff?'checked':''} onchange="zpSet('exStaff',this.checked)"> Exclude staff wards</label>
+    </div>
+    <div class="kpis">
+      ${kpi('Zero paid students',tot.n.toLocaleString('en-IN'),p1(pc(tot.n,tot.pool))+' of '+tot.pool.toLocaleString('en-IN')+' in scope','down')}
+      ${kpi('Outstanding they hold',rup(tot.due),tot.n?inr(tot.due/tot.n)+' each on average':'')}
+      ${kpi('New admissions',tot.nNew.toLocaleString('en-IN'),'below '+inr(z.newT))}
+      ${kpi('Continuing students',(tot.n-tot.nNew).toLocaleString('en-IN'),'below '+inr(z.oldT))}
+      ${kpi('Branches affected',brRows.length.toLocaleString('en-IN'),'of '+byBranch.size+' in view')}
+      ${kpi('Sitting exactly on a threshold',tot.ties.toLocaleString('en-IN'),'borderline cases','gold')}
+    </div>
+    <div class="mini" style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      <span class="eyebrow">Reconcile</span>
+      <span>Neither tie counted <b class="num">${tot.combo.ltlt.toLocaleString('en-IN')}</b></span>
+      <span>New admission tie counted <b class="num">${tot.combo.lelt.toLocaleString('en-IN')}</b></span>
+      <span>Existing tie counted <b class="num">${tot.combo.ltle.toLocaleString('en-IN')}</b></span>
+      <span>Both counted <b class="num">${tot.combo.lele.toLocaleString('en-IN')}</b></span>
+    </div>
+    <div class="mini" style="margin-top:10px">${tot.skipped.toLocaleString('en-IN')} RTE and staff-ward students were left out of the count${tot.blank?' · '+tot.blank.toLocaleString('en-IN')+' students in scope have no student type recorded and are treated as continuing':''}.</div>
+  </div>
+
+  ${wholesale.length?'<div class="card" style="border-color:#5c4520;background:#1a1712;margin-bottom:14px">'+
+    '<h3 style="color:var(--goldhi)">'+wholesale.length+' branch'+(wholesale.length>1?'es have':' has')+' no recorded payment against any student</h3>'+
+    '<div class="sub">Every student in scope reads as zero paid, which is a reporting gap far more often than a real one. Check whether these branches post collections into a different system before this list goes to anyone.</div>'+
+    wholesale.sort((a,b)=>b.pool-a.pool).slice(0,8).map(o=>'<div class="ins"><span class="tag watch">check</span><div>'+esc(o.name)+
+      ' — <b>'+o.pool.toLocaleString('en-IN')+'</b> students, <b>'+rup(o.due)+'</b> shown as outstanding, nothing collected at all.</div></div>').join('')+
+    '</div>':''}
+  <div class="card" style="margin-bottom:14px">
+    <div class="cardhead"><div><h3>Branch view</h3><div class="sub">Where the zero-paid students sit</div></div>
+      <button class="btn" onclick="__export_zpb()">Export branch summary</button></div>
+    <div class="tblwrap" style="max-height:420px"><table><thead><tr>
+      ${th(btid,'name','Branch')}${th(btid,'loc','City')}${th(btid,'pool','Students in scope','n')}
+      ${th(btid,'n','Zero paid','n')}${th(btid,'pcv','Share','n')}${th(btid,'nNew','New','n')}
+      ${th(btid,'nOld','Existing','n')}${th(btid,'due','Outstanding held','n')}
+    </tr></thead><tbody>
+    ${bsorted.map(r=>'<tr><td>'+esc(r.name)+'</td><td style="color:var(--dim)">'+esc(r.loc)+'</td>'+
+      '<td class="n">'+r.pool.toLocaleString('en-IN')+'</td>'+
+      '<td class="n down">'+r.n.toLocaleString('en-IN')+'</td>'+
+      '<td class="n '+(r.pcv>10?'down':'')+'">'+p1(r.pcv)+'</td>'+
+      '<td class="n">'+(r.nNew||'—')+'</td><td class="n">'+(r.nOld||'—')+'</td>'+
+      '<td class="n">'+rup(r.due)+'</td></tr>').join('')}
+    </tbody></table></div>
+  </div>
+
+  <div class="card">
+    <div class="cardhead"><div><h3>Student list</h3>
+      <div class="sub">${rows.length.toLocaleString('en-IN')} students${rows.length>1000?' · showing the top 1,000 by outstanding, export gives every row':''}</div></div></div>
+    <div class="tblwrap"><table><thead><tr>
+      ${th(tid,'code','Code')}${th(tid,'name','Student')}${th(tid,'br','Branch')}${th(tid,'gr','Grade')}
+      ${th(tid,'group','Group')}${th(tid,'net','Net billed','n')}${th(tid,'paid','Paid','n')}
+      ${th(tid,'due','Outstanding','n')}<th class="no">Flag</th>
+    </tr></thead><tbody>
+    ${shown.map(r=>'<tr><td class="num" style="color:var(--dim)">'+esc(r.code)+'</td><td>'+esc(r.name)+'</td>'+
+      '<td style="color:var(--muted)">'+esc(r.br)+'</td><td style="color:var(--dim)">'+esc(r.gr)+'</td>'+
+      '<td><span class="pill '+(r.group==='New admission'?'t':'f')+'">'+r.group+'</span></td>'+
+      '<td class="n">'+inr(r.net)+'</td><td class="n '+(r.paid>0?'':'down')+'">'+inr(r.paid)+'</td>'+
+      '<td class="n down">'+inr(r.due)+'</td>'+
+      '<td>'+(r.paid<=0?'<span class="pill bad">nothing at all</span>':r.tie?'<span class="pill">exactly at threshold</span>':'<span class="pill">part payment</span>')+'</td></tr>').join('')}
+    </tbody></table></div>
+  </div>`;
+}
+
 function viewToday(){
   const {A}=current();
   const rows=A.pay, tid='pay', sorted=sortRows(rows,tid,{k:'amt',dir:-1}).slice(0,3000);
@@ -1573,7 +1673,7 @@ function render(){
   $('#fCount').innerHTML='Showing <b>'+A.nA.toLocaleString('en-IN')+'</b> active students'+
     (A.n!==A.nA?' <span style="color:var(--dim)">(+'+(A.n-A.nA).toLocaleString('en-IN')+' inactive in view)</span>':'');
   const v={overview:viewOverview,branches:viewBranches,compare:viewCompare,targets:viewTargets,today:viewToday,
-           defaulters:viewDefaulters,segments:viewSegments,health:viewHealth}[S.tab];
+           defaulters:viewDefaulters,zeropaid:viewZeroPaid,segments:viewSegments,health:viewHealth}[S.tab];
   $('#views').innerHTML=bannerHTML()+v();
   const pe=$('#paceEnd'); if(pe) pe.onchange=e=>{ S.paceEnd=e.target.value; render(); };
   if(S.tab==='targets') updateTargets();
@@ -1629,35 +1729,8 @@ function boot(){
   if(!settledOK()) chips.push('<span class="chip warn">Keep the '+dayShort(S.dates.d1)+' and '+dayShort(S.dates.d0)+' exports and add tomorrow\'s to close a settled day</span>');
   if(S.fees&&P.fees.d0!==S.dates.d0) chips.push('<span class="chip warn">Fee report is from '+P.fees.d0+'</span>');
   if(S.transport&&P.transport.d0!==S.dates.d0) chips.push('<span class="chip warn">Transport report is from '+P.transport.d0+'</span>');
-  if(S.isPublished) chips.push('<span class="chip" style="border-color:var(--sage);color:var(--sage)">Published</span>');
   chips.push('<span class="chip">'+(S.fees?S.fees.N.toLocaleString('en-IN'):0)+' fee · '+(S.transport?S.transport.N.toLocaleString('en-IN'):0)+' transport records</span>');
   $('#dateChips').innerHTML=chips.join('');
-  const pubBtn = $('#publish');
-  if(pubBtn){
-    pubBtn.textContent = S.isPublished ? 'Published ✓' : 'Publish';
-    pubBtn.onclick = async () => {
-      if(!S.rawFiles || !S.rawFiles.length) {
-        alert('No files loaded to publish.');
-        return;
-      }
-      pubBtn.textContent = 'Publishing...';
-      try {
-        const fileItems = [];
-        for(const f of S.rawFiles) {
-          const content = await f.text();
-          fileItems.push({ name: f.name, lastModified: f.lastModified, content: content });
-        }
-        await savePublishedFiles(fileItems);
-        S.isPublished = true;
-        S.publishedAt = new Date().toISOString();
-        boot();
-      } catch(err) {
-        console.error(err);
-        alert('Failed to publish dashboard: ' + err.message);
-        pubBtn.textContent = 'Publish';
-      }
-    };
-  }
   $('#brandSub').textContent='Orchids · '+(S.fees?S.fees.IB.list.filter(v=>v!==BLANK).length:0)+' branches';
   if(!S.fees&&S.transport) S.scope='transport';
   $$('#scope button').forEach(b=>{ b.classList.toggle('on',b.dataset.s===S.scope);
@@ -1670,22 +1743,6 @@ function boot(){
   renderFocus(); refreshFilters(); render();
   $('#loader').classList.add('hide'); $('#app').classList.remove('hide');
 }
-
-/* Auto-load published dashboard on startup if available */
-window.addEventListener('DOMContentLoaded', async () => {
-  try {
-    const pubData = await getPublishedFiles();
-    if(pubData && pubData.files && pubData.files.length) {
-      const files = pubData.files.map(f => {
-        const blob = new Blob([f.content], { type: 'text/csv' });
-        return new File([blob], f.name, { lastModified: f.lastModified });
-      });
-      await ingest(files, { fromPublished: true, publishedAt: pubData.publishedAt });
-    }
-  } catch(e) {
-    console.error('Error auto-loading published files:', e);
-  }
-});
 </script>
 </body>
 </html>
